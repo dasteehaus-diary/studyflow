@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="108" fill="#f6f2ea"/>
+  <rect x="64" y="112" width="384" height="288" rx="36" fill="#46534f"/>
+  <rect x="96" y="148" width="320" height="216" rx="20" fill="#ded9ce"/>
+  <!-- Cassette reels -->
+  <circle cx="180" cy="256" r="44" fill="#fffdf8" stroke="#7b765f" stroke-width="12"/>
+  <circle cx="180" cy="256" r="16" fill="#46534f"/>
+  <circle cx="332" cy="256" r="44" fill="#fffdf8" stroke="#7b765f" stroke-width="12"/>
+  <circle cx="332" cy="256" r="16" fill="#46534f"/>
+  <!-- Tape bridge -->
+  <rect x="180" y="250" width="152" height="12" fill="#bd5738"/>
+  <!-- Label badge -->
+  <rect x="136" y="168" width="240" height="38" rx="8" fill="#f6a56e"/>
+  <text x="256" y="193" font-family="system-ui, sans-serif" font-size="18" font-weight="bold" fill="#2f332c" text-anchor="middle">STUDYFLOW</text>
+</svg>

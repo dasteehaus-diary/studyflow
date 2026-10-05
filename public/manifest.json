@@ -1,0 +1,17 @@
+{
+  "name": "StudyFlow",
+  "short_name": "StudyFlow",
+  "description": "A personal anti-abandonment reader that remembers where you stopped and what you were thinking.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f2ea",
+  "theme_color": "#f6f2ea",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
