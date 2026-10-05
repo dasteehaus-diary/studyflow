@@ -15,3 +15,6 @@ yarn-error.log*
 *.log
 *backup*.json
 *backup*.zip
+
+.vercel
+.env*
