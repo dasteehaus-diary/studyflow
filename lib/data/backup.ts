@@ -33,8 +33,58 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+export interface BackupEstimate {
+  documentsCount: number;
+  notesCount: number;
+  highlightsCount: number;
+  pdfTotalBytes: number;
+  pdfTotalMB: number;
+  isLarge: boolean; // > 50MB
+}
+
+export async function getBackupEstimate(): Promise<BackupEstimate> {
+  if (!localDB) {
+    return {
+      documentsCount: 0,
+      notesCount: 0,
+      highlightsCount: 0,
+      pdfTotalBytes: 0,
+      pdfTotalMB: 0,
+      isLarge: false
+    };
+  }
+
+  const documents = await localDB.documents.toArray();
+  const notes = await localDB.notes.toArray();
+  const highlights = await localDB.highlights.toArray();
+
+  let pdfTotalBytes = 0;
+  for (const doc of documents) {
+    if (typeof doc.fileSizeBytes === 'number' && doc.fileSizeBytes > 0) {
+      pdfTotalBytes += doc.fileSizeBytes;
+    } else {
+      try {
+        const file = await readPdfFromOPFS(doc.id);
+        pdfTotalBytes += file.size;
+      } catch {
+        // File may not exist in OPFS
+      }
+    }
+  }
+
+  const pdfTotalMB = Math.round((pdfTotalBytes / (1024 * 1024)) * 10) / 10;
+  return {
+    documentsCount: documents.length,
+    notesCount: notes.length,
+    highlightsCount: highlights.length,
+    pdfTotalBytes,
+    pdfTotalMB,
+    isLarge: pdfTotalBytes > 50 * 1024 * 1024
+  };
+}
+
 export async function exportStudyFlowBackup(includePdfBytes = false): Promise<StudyFlowBackupData> {
-  if (!localDB) throw new Error('Local database is not initialized');
+  if (!localDB) throw new Error('Cơ sở dữ liệu cục bộ chưa được khởi tạo.');
 
   const documents = await localDB.documents.toArray();
   const progress = await localDB.progress.toArray();
@@ -73,52 +123,68 @@ export async function exportStudyFlowBackup(includePdfBytes = false): Promise<St
   };
 }
 
-export async function restoreStudyFlowBackup(backup: StudyFlowBackupData): Promise<{
+export async function restoreStudyFlowBackup(backup: unknown): Promise<{
   documentsCount: number;
   notesCount: number;
+  highlightsCount: number;
   pdfsRestored: number;
 }> {
-  if (!localDB) throw new Error('Local database is not initialized');
-  if (backup.version !== 1) throw new Error('Định dạng backup không hợp lệ hoặc không tương thích.');
+  if (!localDB) throw new Error('Cơ sở dữ liệu cục bộ chưa được khởi tạo.');
+
+  if (!backup || typeof backup !== 'object') {
+    throw new Error('Dữ liệu sao lưu không hợp lệ: Không tìm thấy nội dung JSON.');
+  }
+
+  const data = backup as Partial<StudyFlowBackupData>;
+
+  if (data.version !== 1) {
+    throw new Error(
+      `Phiên bản sao lưu không tương thích (phát hiện: ${data.version ?? 'không xác định'}). StudyFlow chỉ hỗ trợ phiên bản 1.`
+    );
+  }
+
+  if (!Array.isArray(data.documents)) {
+    throw new Error('Tệp sao lưu bị lỗi cấu trúc: Mục "documents" không hợp lệ.');
+  }
 
   let pdfsRestored = 0;
 
   // Restore documents
-  for (const doc of backup.documents || []) {
+  for (const doc of data.documents || []) {
     await localDB.documents.put(doc);
   }
 
   // Restore progress
-  for (const prog of backup.progress || []) {
+  for (const prog of data.progress || []) {
     await localDB.progress.put(prog);
   }
 
   // Restore highlights
-  for (const hl of backup.highlights || []) {
+  for (const hl of data.highlights || []) {
     await localDB.highlights.put(hl);
   }
 
   // Restore notes
-  for (const note of backup.notes || []) {
+  for (const note of data.notes || []) {
     await localDB.notes.put(note);
   }
 
   // Restore unlocked rewards
-  for (const reward of backup.unlockedRewards || []) {
+  for (const reward of data.unlockedRewards || []) {
     await localDB.unlockedRewards.put(reward);
   }
 
   // Restore settings
-  for (const s of backup.settings || []) {
+  for (const s of data.settings || []) {
     await localDB.settings.put(s);
   }
 
   // Restore PDF files if provided in backup
-  if (backup.pdfFiles) {
-    for (const [docId, base64] of Object.entries(backup.pdfFiles)) {
+  if (data.pdfFiles && typeof data.pdfFiles === 'object') {
+    for (const [docId, base64] of Object.entries(data.pdfFiles)) {
       try {
         const buffer = base64ToArrayBuffer(base64);
-        const doc = backup.documents.find(d => d.id === docId);
+        const doc = data.documents.find((d) => d.id === docId);
         const file = new File([buffer], `${doc?.title || docId}.pdf`, { type: 'application/pdf' });
         await savePdfToOPFS(docId, file);
         pdfsRestored++;
@@ -129,8 +195,9 @@ export async function restoreStudyFlowBackup(backup: StudyFlowBackupData): Promi
   }
 
   return {
-    documentsCount: backup.documents?.length || 0,
-    notesCount: backup.notes?.length || 0,
+    documentsCount: data.documents?.length || 0,
+    notesCount: data.notes?.length || 0,
+    highlightsCount: data.highlights?.length || 0,
     pdfsRestored
   };
 }

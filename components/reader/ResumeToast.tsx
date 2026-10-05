@@ -36,7 +36,7 @@ export function ResumeToast({ page, activeParkingNote, openQuestion, onDismiss }
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="eyebrow" style={{ color: 'var(--terracotta)' }}>
-          Last time you stopped here · Trang {page}
+          Lần trước mình dừng ở đây · Trang {page}
         </div>
         <button
           className="secondary"
@@ -51,7 +51,7 @@ export function ResumeToast({ page, activeParkingNote, openQuestion, onDismiss }
       {activeParkingNote && (
         <div style={{ fontSize: 13, lineHeight: 1.4 }}>
           <strong>📌 Parking Note:</strong>
-          <div style={{ marginTop: 3, color: 'var(--ink)', background: '#f5f0e6', padding: '6px 10px', borderRadius: 8 }}>
+          <div style={{ marginTop: 3, color: 'var(--ink)', background: 'rgba(235, 226, 212, 0.6)', padding: '8px 12px', borderRadius: 8, fontStyle: 'italic' }}>
             “{activeParkingNote.noteText}”
           </div>
         </div>
@@ -59,8 +59,8 @@ export function ResumeToast({ page, activeParkingNote, openQuestion, onDismiss }
 
       {openQuestion && (
         <div style={{ fontSize: 13, lineHeight: 1.4 }}>
-          <strong style={{ color: 'var(--rose)' }}>❓ Open Question:</strong>
-          <div style={{ marginTop: 3, color: 'var(--ink)' }}>
+          <strong style={{ color: 'var(--rose)' }}>❓ Câu hỏi chưa giải quyết:</strong>
+          <div style={{ marginTop: 3, color: 'var(--ink)', fontStyle: 'italic' }}>
             “{openQuestion.noteText}”
           </div>
         </div>
@@ -72,7 +72,7 @@ export function ResumeToast({ page, activeParkingNote, openQuestion, onDismiss }
           style={{ padding: '6px 14px', fontSize: 12 }}
           onClick={() => { setDismissed(true); onDismiss(); }}
         >
-          Got it
+          Đã hiểu
         </button>
       </div>
     </div>

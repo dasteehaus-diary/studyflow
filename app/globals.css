@@ -1,4 +1,4 @@
-:root {
+:root, [data-theme="warm"] {
   --bg: #f6f2ea;
   --panel: #fffdf8;
   --ink: #2f332c;
@@ -13,6 +13,25 @@
   --deep: #46534f;
   --shadow: 0 10px 30px rgba(68, 58, 43, 0.08);
   --radius: 22px;
+}
+
+[data-theme="light"] {
+  --bg: #faf7f2;
+  --panel: #ffffff;
+  --ink: #1f2328;
+  --muted: #656d76;
+  --line: #e3ded5;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  --bg: #181a18;
+  --panel: #222622;
+  --ink: #e8eae6;
+  --muted: #9ba098;
+  --line: #333833;
+  --deep: #5a6b65;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 * { box-sizing: border-box; }
@@ -47,11 +66,12 @@ h2 { font-size: 19px; margin: 34px 0 15px; }
 .track { height: 4px; border-radius: 999px; background: #ddd7cb; overflow: hidden; }
 .track > span { display: block; height: 100%; background: var(--terracotta); }
 .progressText { font-size: 12px; color: var(--muted); min-width: 34px; text-align: right; }
-.readerShell { min-height: 100vh; display: grid; grid-template-rows: 58px 1fr 48px; background: #ebe7df; }
+.readerShell { height: 100vh; min-height: 100vh; display: grid; grid-template-rows: 58px 1fr 48px; background: #ebe7df; overflow: hidden; }
+.readerShell.focusMode { grid-template-rows: 1fr; }
 .readerTop { display: flex; align-items: center; justify-content: space-between; padding: 0 18px; background: rgba(255,253,248,.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
-.readerBody { display: grid; grid-template-columns: 1fr; min-height: 0; }
+.readerBody { display: grid; grid-template-columns: 1fr; min-height: 0; height: 100%; overflow: hidden; }
 .readerBody.notesOpen { grid-template-columns: minmax(0, 1fr) 360px; }
-.pdfStage { overflow: auto; padding: 28px; display: grid; place-items: start center; }
+.pdfStage { overflow: auto; padding: 28px; display: grid; place-items: start center; height: 100%; width: 100%; }
 .pdfPaper { width: min(780px, 100%); min-height: 1050px; background: white; box-shadow: 0 12px 40px rgba(0,0,0,.10); padding: 70px; line-height: 1.75; }
 .notesPanel { background: var(--panel); border-left: 1px solid var(--line); padding: 20px; overflow: auto; }
 .noteItem { border-top: 1px solid var(--line); padding: 14px 0; }
@@ -77,7 +97,22 @@ h2 { font-size: 19px; margin: 34px 0 15px; }
   .cover { width: 80px; }
   .continueCard .primary { grid-column: 1 / -1; }
   .readerBody.notesOpen { grid-template-columns: 1fr; }
-  .notesPanel { border-left: 0; border-top: 1px solid var(--line); max-height: 45vh; }
+  .notesPanel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 75vh;
+    z-index: 950;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+  }
+  .pdfStage { padding: 12px 6px; }
+  .readerTop { padding: 0 12px; height: 50px; }
+  .readerBottom { padding: 0 12px; height: 50px; }
 }
 
 /* Phase 0 technical-spike harness. Remove or hide from the production navigation later. */

@@ -38,7 +38,7 @@ export function AuthButton() {
             style={{ fontSize: 11, padding: '4px 8px' }}
             onClick={() => signOut()}
           >
-            Sign out
+            Đăng xuất
           </button>
         </div>
       ) : (
@@ -48,7 +48,7 @@ export function AuthButton() {
             style={{ fontSize: 12, width: '100%', padding: '6px 10px' }}
             onClick={() => setIsOpen(true)}
           >
-            {isConfigured ? 'Sign in / Sync' : 'Local Mode'}
+            {isConfigured ? 'Đăng nhập / Đồng bộ' : 'Chế độ Cục bộ'}
           </button>
 
           {isOpen && (
@@ -69,24 +69,24 @@ export function AuthButton() {
                 style={{ width: 'min(400px, 100%)', padding: 24 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="eyebrow">StudyFlow Sync</div>
+                <div className="eyebrow">Đồng bộ đám mây</div>
                 <h3 style={{ margin: '8px 0 12px' }}>
-                  {isConfigured ? 'Sign in with Magic Link' : 'Local Mode Active'}
+                  {isConfigured ? 'Đăng nhập với Magic Link' : 'Chế độ Cục bộ đang hoạt động'}
                 </h3>
                 {isConfigured ? (
                   status === 'sent' ? (
                     <div>
-                      <p>✨ Magic link sent to <strong>{email}</strong>! Check your inbox to sign in.</p>
-                      <button className="primary" onClick={() => setIsOpen(false)}>Done</button>
+                      <p>✨ Đã gửi liên kết đăng nhập tới <strong>{email}</strong>! Vui lòng kiểm tra hộp thư của bạn.</p>
+                      <button className="primary" onClick={() => setIsOpen(false)}>Xong</button>
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
                       <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-                        Enter your email to sync your reading progress, notes, and B-Side rewards across devices. PDF files remain stored locally on each device.
+                        Nhập email để đồng bộ tiến độ đọc, ghi chú và kho B-Side giữa các thiết bị. File PDF vẫn luôn được lưu riêng tư trên máy của bạn (Local-First).
                       </p>
                       <input
                         type="email"
-                        placeholder="your@email.com"
+                        placeholder="email@vidu.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -100,9 +100,9 @@ export function AuthButton() {
                         <div style={{ color: 'var(--terracotta)', fontSize: 12 }}>{errorMsg}</div>
                       )}
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button type="button" className="secondary" onClick={() => setIsOpen(false)}>Cancel</button>
+                        <button type="button" className="secondary" onClick={() => setIsOpen(false)}>Hủy</button>
                         <button type="submit" className="primary" disabled={status === 'sending'}>
-                          {status === 'sending' ? 'Sending…' : 'Send Magic Link'}
+                          {status === 'sending' ? 'Đang gửi…' : 'Gửi liên kết đăng nhập'}
                         </button>
                       </div>
                     </form>
@@ -110,13 +110,13 @@ export function AuthButton() {
                 ) : (
                   <div>
                     <p className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-                      StudyFlow is currently running in <strong>Local-First Mode</strong>. All your documents, highlights, notes, questions, and B-Side gifts are safely stored in your browser (OPFS & IndexedDB) and work 100% offline.
+                      StudyFlow đang chạy ở <strong>Chế độ Cục bộ (Local-First)</strong>. Mọi tài liệu, highlight, ghi chú và phần thưởng B-Side được lưu an toàn trong trình duyệt của bạn (OPFS & IndexedDB) và hoạt động 100% khi không có mạng.
                     </p>
                     <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-                      To enable multi-device sync, configure <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> in your environment.
+                      Để kích hoạt đồng bộ nhiều thiết bị, hãy thiết lập <code>NEXT_PUBLIC_SUPABASE_URL</code> và <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> trong môi trường.
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                      <button className="primary" onClick={() => setIsOpen(false)}>Got it</button>
+                      <button className="primary" onClick={() => setIsOpen(false)}>Đã hiểu</button>
                     </div>
                   </div>
                 )}

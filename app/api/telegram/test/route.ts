@@ -1,0 +1,68 @@
+import { NextResponse } from 'next/server';
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const chatId = body?.chatId?.toString().trim();
+
+    if (!chatId) {
+      return NextResponse.json(
+        { ok: false, error: 'Vui lòng cung cấp Telegram Chat ID.' },
+        { status: 400 }
+      );
+    }
+
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Telegram chưa được kết nối. Biến môi trường TELEGRAM_BOT_TOKEN chưa được thiết lập trên server.'
+        },
+        { status: 503 }
+      );
+    }
+
+    const message = [
+      '📼 *StudyFlow — Kiểm tra kết nối*',
+      '',
+      `Tin nhắn thử nghiệm đã gửi thành công tới Chat ID \`${chatId}\`!`,
+      '',
+      'Khi bạn tạm dừng đọc quá số ngày đã cài đặt, StudyFlow sẽ tự động gửi thông báo kèm dòng suy nghĩ (Parking Note) và % cuộn băng để bạn dễ dàng tiếp tục.'
+    ].join('\n');
+
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: data.description || 'Lỗi khi gửi tin nhắn qua Telegram Bot API.'
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: 'Đã gửi tin nhắn thử nghiệm thành công qua Telegram!'
+    });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Lỗi hệ thống khi kết nối Telegram.'
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -185,9 +185,6 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
 
             {unlockedReward.rewardType === 'collectible' && (
               <div style={{ background: '#f5f0e6', borderRadius: 12, padding: 12, margin: '12px 0', fontSize: 13 }}>
-                <span className="verifyBadge pass" style={{ display: 'inline-block', marginBottom: 6 }}>
-                  Rarity: {(payload?.collectibleRarity as string) || 'Rare'}
-                </span>
                 <p style={{ margin: 0, color: 'var(--muted)', fontStyle: 'italic' }}>
                   “{payload?.lore as string}”
                 </p>

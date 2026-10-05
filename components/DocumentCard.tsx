@@ -206,13 +206,35 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
         <div
           className="docThumb"
           style={{
-            background: document.status === 'completed'
+            background: document.thumbnail ? '#2c2a26' : (document.status === 'completed'
               ? 'linear-gradient(135deg, var(--olive-cream), #9e965f)'
-              : 'linear-gradient(135deg, var(--dusty-blue), #697a8c)',
-            position: 'relative'
+              : 'linear-gradient(135deg, var(--dusty-blue), #697a8c)'),
+            position: 'relative',
+            overflow: 'hidden'
           }}
         >
-          <span style={{ fontSize: 13, color: 'white', lineHeight: 1.3 }}>
+          {document.thumbnail && (
+            <img
+              src={document.thumbnail}
+              alt={document.title}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                opacity: 0.82
+              }}
+            />
+          )}
+          <span style={{
+            fontSize: 13,
+            color: 'white',
+            lineHeight: 1.3,
+            position: 'relative',
+            zIndex: 2,
+            textShadow: document.thumbnail ? '0 1px 4px rgba(0,0,0,0.85)' : undefined
+          }}>
             {document.title}
           </span>
           {document.status === 'completed' && (
@@ -221,15 +243,16 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'rgba(0,0,0,0.4)',
+                background: 'rgba(0,0,0,0.6)',
                 color: 'white',
                 padding: '2px 6px',
                 borderRadius: 6,
                 fontSize: 10,
-                fontWeight: 700
+                fontWeight: 700,
+                zIndex: 2
               }}
             >
-              ✓ Completed
+              ✓ Đã xong
             </span>
           )}
         </div>

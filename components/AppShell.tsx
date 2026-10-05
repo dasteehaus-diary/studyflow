@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { AuthButton } from './AuthButton';
 
 const nav = [
-  ['▣', 'Bookshelf', '/'],
-  ['✎', 'Notebook', '/notebook'],
-  ['▤', 'B-Side Vault', '/vault'],
-  ['⚙', 'Settings', '/settings']
+  ['▣', 'Kệ sách', '/'],
+  ['✎', 'Ghi chép', '/notebook'],
+  ['▤', 'Kho B-Side', '/vault'],
+  ['⚙', 'Cài đặt', '/settings']
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {

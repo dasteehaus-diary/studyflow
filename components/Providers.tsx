@@ -2,6 +2,7 @@
 
 import { useEffect, ReactNode } from 'react';
 import { AuthProvider } from '@/lib/auth/auth-context';
+import { SettingsProvider } from '@/lib/settings/settings-context';
 
 export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -10,5 +11,9 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <SettingsProvider>
+      <AuthProvider>{children}</AuthProvider>
+    </SettingsProvider>
+  );
 }

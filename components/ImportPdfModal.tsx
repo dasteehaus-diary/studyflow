@@ -5,6 +5,11 @@ import { localDB, type LocalDocument } from '@/lib/db/local';
 import { sha256FileInWorker } from '@/lib/storage/file-hash-client';
 import { savePdfToOPFS, pdfExistsInOPFS, supportsOPFS } from '@/lib/storage/opfs';
 import { enqueueSync } from '@/lib/sync/sync-service';
+import { pdfjs } from 'react-pdf';
+
+if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+  pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+}
 
 type ImportStatus = 'idle' | 'hashing' | 'saving' | 'success' | 'duplicate' | 'relink_success' | 'error';
 
@@ -95,11 +100,36 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
       const now = new Date().toISOString();
       const title = file.name.replace(/\.pdf$/i, '');
 
+      // Generate local thumbnail and totalPages
+      let thumbnail: string | undefined;
+      let totalPages: number | undefined;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        totalPages = pdf.numPages;
+        const firstPage = await pdf.getPage(1);
+        const viewport = firstPage.getViewport({ scale: 0.3 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          await firstPage.render({ canvasContext: ctx, viewport, canvas }).promise;
+          thumbnail = canvas.toDataURL('image/jpeg', 0.75);
+        }
+      } catch (err) {
+        console.warn('Could not generate PDF thumbnail, falling back to gradient:', err);
+      }
+
       const newDoc: LocalDocument = {
         id,
         title,
         fileHash,
         opfsPath,
+        totalPages,
+        fileSizeBytes: file.size,
+        thumbnail,
         tags: [],
         status: 'in_progress',
         createdAt: now,

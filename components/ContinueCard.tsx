@@ -17,16 +17,48 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
   const totalPages = document.totalPages ?? 0;
   const pct = progress ? cassetteProgress(totalPages || currentPage, progress.visitedRanges) : 0;
   const lastActive = formatRelativeTime(progress?.lastMeaningfulActivityAt || document.updatedAt);
+  const isCompleted = document.status === 'completed' || !!progress?.completed;
 
   return (
     <section className="card continueCard" style={{ marginBottom: 28 }}>
-      <div className="cover" style={{ background: 'linear-gradient(145deg, var(--deep), #263330)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, lineClamp: 3 }}>{document.title}</div>
+      <div
+        className="cover"
+        style={{
+          background: document.thumbnail ? '#2c2a26' : 'linear-gradient(145deg, var(--deep), #263330)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {document.thumbnail && (
+          <img
+            src={document.thumbnail}
+            alt={document.title}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: 0.8
+            }}
+          />
+        )}
+        <div style={{
+          fontSize: 13,
+          fontWeight: 700,
+          position: 'relative',
+          zIndex: 2,
+          textShadow: document.thumbnail ? '0 1px 4px rgba(0,0,0,0.85)' : undefined
+        }}>
+          {document.title}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
         <div className="eyebrow" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span>Continue reading</span>
+          <span style={{ color: isCompleted ? 'var(--olive)' : 'var(--terracotta)' }}>
+            {isCompleted ? '✓ Đã hoàn thành' : '▶ Tiếp tục đọc'}
+          </span>
           <span style={{ textTransform: 'none', fontWeight: 'normal' }}>· {lastActive}</span>
         </div>
 
@@ -36,7 +68,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <div
             style={{
               fontSize: 13,
-              background: '#f1ede3',
+              background: 'rgba(235, 226, 212, 0.6)',
               padding: '6px 12px',
               borderRadius: 8,
               borderLeft: '3px solid var(--terracotta)',
@@ -51,7 +83,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
           <div style={{ flex: 1 }}>
             <CassetteProgress value={pct} />
           </div>
@@ -59,8 +91,8 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
         </div>
       </div>
 
-      <Link className="primary" href={`/reader/${document.id}`}>
-        Continue reading →
+      <Link className="primary" href={`/reader/${document.id}`} style={{ whiteSpace: 'nowrap' }}>
+        {isCompleted ? 'Đọc lại →' : 'Tiếp tục đọc →'}
       </Link>
     </section>
   );

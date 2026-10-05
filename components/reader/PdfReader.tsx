@@ -10,6 +10,7 @@ import { localDB, type LocalDocument, type LocalProgress, type LocalHighlight, t
 import { readPdfFromOPFS, pdfExistsInOPFS } from '@/lib/storage/opfs';
 import { mergePagesIntoRanges, cassetteProgress } from '@/lib/progress/cassette';
 import { enqueueSync } from '@/lib/sync/sync-service';
+import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
 import { PdfPageItem } from './PdfPageItem';
 import { HighlightToolbar } from './HighlightToolbar';
@@ -30,6 +31,8 @@ interface PdfReaderProps {
 }
 
 export function PdfReader({ documentId, initialPage, initialY, initialHighlightId }: PdfReaderProps) {
+  const { settings } = useSettings();
+
   const [doc, setDoc] = useState<LocalDocument | null>(null);
   const [progress, setProgress] = useState<LocalProgress | null>(null);
   const [highlights, setHighlights] = useState<LocalHighlight[]>([]);
@@ -47,6 +50,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [scale, setScale] = useState<number>(1.15);
   const [finishTapeOpen, setFinishTapeOpen] = useState(false);
   const [relinkModalOpen, setRelinkModalOpen] = useState(false);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Quick Parking Note dock (Requirement 7)
+  const [quickParkOpen, setQuickParkOpen] = useState(false);
+  const [quickParkText, setQuickParkText] = useState('');
+  const [quickParkNotification, setQuickParkNotification] = useState<string | null>(null);
 
   // Selection & Highlight toolbar state
   const [selectionToolbarPos, setSelectionToolbarPos] = useState<{ x: number; y: number } | null>(null);
@@ -58,9 +68,12 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   // Highlight click popup state
   const [activeHighlightPopup, setActiveHighlightPopup] = useState<{ highlight: LocalHighlight; pos: { x: number; y: number } } | null>(null);
 
-  // External composer trigger for notes panel
+  // External composer trigger for notes panel (Requirement 4)
   const [initialComposerQuote, setInitialComposerQuote] = useState<string | null>(null);
   const [initialComposerType, setInitialComposerType] = useState<'quick' | 'question' | 'parking'>('quick');
+  const [initialComposerPage, setInitialComposerPage] = useState<number | undefined>(undefined);
+  const [initialComposerY, setInitialComposerY] = useState<number | undefined>(undefined);
+  const [initialComposerHighlightId, setInitialComposerHighlightId] = useState<string | undefined>(undefined);
 
   // Visited pages set for cassette coverage
   const visitedPagesRef = useRef<Set<number>>(new Set());
@@ -69,10 +82,33 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const stageRef = useRef<HTMLDivElement>(null);
   const hasRestoredInitialScroll = useRef(false);
 
-  // Reading session timer
+  // Throttled progress persistence refs (Requirement 3)
+  const pendingProgressRef = useRef<{ page: number; y: number } | null>(null);
+  const progressSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPersistedLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
+
+  // Reading session tracking refs (Requirement 2 - prevents duplicate writes on scroll)
   const sessionStartRef = useRef<string>(new Date().toISOString());
   const activeSecondsRef = useRef<number>(0);
   const lastInteractionTimeRef = useRef<number>(Date.now());
+  const sessionSavedRef = useRef<boolean>(false);
+  const startLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
+  const currentLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
+
+  // Apply default settings from context (Requirement 5)
+  useEffect(() => {
+    if (settings.readerBg) {
+      setTheme(settings.readerBg);
+    }
+    if (settings.defaultHlColor) {
+      setLastHighlightColor(settings.defaultHlColor);
+    }
+    if (settings.fitMode === 'fit-width') {
+      setScale(1.25);
+    } else if (settings.fitMode === 'fit-page') {
+      setScale(0.95);
+    }
+  }, [settings]);
 
   // Load document, progress, highlights, and notes from Dexie
   const loadData = useCallback(async () => {
@@ -87,9 +123,11 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       setProgress(progressData);
       if (!initialPage && progressData.currentPage) {
         setCurrentPage(progressData.currentPage);
+        currentLocatorRef.current.page = progressData.currentPage;
       }
       if (initialY === undefined && progressData.y !== undefined) {
         setCurrentY(progressData.y);
+        currentLocatorRef.current.y = progressData.y;
       }
       // Populate visited pages from existing visitedRanges
       progressData.visitedRanges.forEach(([start, end]) => {
@@ -125,11 +163,45 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     loadData();
   }, [loadData]);
 
-  // Session timer tracking (idle timeout: 2 minutes)
+  // Flush pending progress helper
+  const flushProgressNow = useCallback(() => {
+    if (!localDB || !pendingProgressRef.current) return;
+    const { page, y } = pendingProgressRef.current;
+    visitedPagesRef.current.add(page);
+    const pagesArray = Array.from(visitedPagesRef.current);
+    const updatedRanges = mergePagesIntoRanges(pagesArray);
+    const now = new Date().toISOString();
+
+    const isMeaningfulMovement =
+      Math.abs(page - lastPersistedLocatorRef.current.page) >= 1 ||
+      Math.abs(y - lastPersistedLocatorRef.current.y) > 0.12;
+
+    const updatedProg: LocalProgress = {
+      documentId,
+      currentPage: page,
+      y: Number(y.toFixed(4)),
+      visitedRanges: updatedRanges,
+      completed: progress?.completed ?? false,
+      lastMeaningfulActivityAt: isMeaningfulMovement ? now : (progress?.lastMeaningfulActivityAt || now),
+      updatedAt: now
+    };
+
+    lastPersistedLocatorRef.current = { page, y };
+    pendingProgressRef.current = null;
+    setProgress(updatedProg);
+    localDB.progress.put(updatedProg).catch(console.error);
+    enqueueSync('progress', documentId, 'upsert', updatedProg).catch(console.error);
+  }, [documentId, progress?.completed, progress?.lastMeaningfulActivityAt]);
+
+  // Requirement 2: Dedicated reading session tracking (1 open = 1 session logic)
   useEffect(() => {
+    sessionSavedRef.current = false;
+    sessionStartRef.current = new Date().toISOString();
+    activeSecondsRef.current = 0;
+
     const interval = setInterval(() => {
       const now = Date.now();
-      // If user interacted within the last 120 seconds, increment activeSeconds
+      // Idle timeout: 120 seconds
       if (now - lastInteractionTimeRef.current < 120_000) {
         activeSecondsRef.current += 1;
       }
@@ -143,31 +215,52 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     window.addEventListener('keydown', handleUserActivity, { passive: true });
     window.addEventListener('scroll', handleUserActivity, { passive: true });
 
+    const persistSession = () => {
+      if (sessionSavedRef.current || activeSecondsRef.current < 5 || !localDB) return;
+      sessionSavedRef.current = true;
+      const now = new Date().toISOString();
+      const sessionId = crypto.randomUUID();
+      const sessionRecord = {
+        id: sessionId,
+        documentId,
+        startedAt: sessionStartRef.current,
+        endedAt: now,
+        activeSeconds: activeSecondsRef.current,
+        startLocator: startLocatorRef.current,
+        endLocator: currentLocatorRef.current,
+        updatedAt: now
+      };
+      localDB.readingSessions.add(sessionRecord).catch(console.error);
+      enqueueSync('session', sessionId, 'upsert', sessionRecord).catch(console.error);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushProgressNow();
+        persistSession();
+      }
+    };
+
+    const handlePageHide = () => {
+      flushProgressNow();
+      persistSession();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('keydown', handleUserActivity);
       window.removeEventListener('scroll', handleUserActivity);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
 
-      // Save reading session on unmount
-      if (activeSecondsRef.current > 5 && localDB) {
-        const now = new Date().toISOString();
-        const sessionId = crypto.randomUUID();
-        const sessionRecord = {
-          id: sessionId,
-          documentId,
-          startedAt: sessionStartRef.current,
-          endedAt: now,
-          activeSeconds: activeSecondsRef.current,
-          startLocator: { page: initialPage || 1, y: 0 },
-          endLocator: { page: currentPage, y: currentY },
-          updatedAt: now
-        };
-        localDB.readingSessions.add(sessionRecord).catch(console.error);
-        enqueueSync('session', sessionId, 'upsert', sessionRecord).catch(console.error);
-      }
+      flushProgressNow();
+      persistSession();
     };
-  }, [documentId, currentPage, currentY, initialPage]);
+  }, [documentId, flushProgressNow]);
 
   // Handle PDF loaded document metadata
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -193,38 +286,25 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     return () => clearTimeout(timer);
   }, [totalPages, initialPage, initialY, progress]);
 
-  // Debounced progress saver
-  const saveProgressDebounced = useCallback((page: number, y: number) => {
-    if (!localDB) return;
+  // Requirement 3: Debounced progress persistence (750ms throttle)
+  const scheduleProgressPersistence = useCallback((page: number, y: number) => {
+    pendingProgressRef.current = { page, y };
 
-    visitedPagesRef.current.add(page);
-    const pagesArray = Array.from(visitedPagesRef.current);
-    const updatedRanges = mergePagesIntoRanges(pagesArray);
-    const now = new Date().toISOString();
+    if (progressSaveTimerRef.current) {
+      clearTimeout(progressSaveTimerRef.current);
+    }
 
-    const updatedProg: LocalProgress = {
-      documentId,
-      currentPage: page,
-      y: Number(y.toFixed(4)),
-      visitedRanges: updatedRanges,
-      completed: progress?.completed ?? false,
-      lastMeaningfulActivityAt: now,
-      updatedAt: now
-    };
+    progressSaveTimerRef.current = setTimeout(() => {
+      flushProgressNow();
+    }, 750);
+  }, [flushProgressNow]);
 
-    setProgress(updatedProg);
-    localDB.progress.put(updatedProg).catch(console.error);
-    enqueueSync('progress', documentId, 'upsert', updatedProg).catch(console.error);
-  }, [documentId, progress?.completed]);
-
-  // Scroll listener to update visible page and y offset
+  // Scroll listener to update visible page and y offset smoothly
   const handleScroll = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
     lastInteractionTimeRef.current = Date.now();
-
-    const stageRect = stage.getBoundingClientRect();
     const scrollTop = stage.scrollTop;
 
     // Detect which page container is currently in view
@@ -241,11 +321,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         }
         const relY = Math.max(0, Math.min(1, (scrollTop - pageTop) / (pageHeight || 1)));
         setCurrentY(relY);
-        saveProgressDebounced(p, relY);
+        currentLocatorRef.current = { page: p, y: relY };
+
+        scheduleProgressPersistence(p, relY);
         break;
       }
     }
-  }, [totalPages, currentPage, saveProgressDebounced]);
+  }, [totalPages, currentPage, scheduleProgressPersistence]);
 
   // Jump to exact page and vertical position (Note <-> Source)
   const jumpToPageAndY = (page: number, y: number, highlightId?: string) => {
@@ -260,7 +342,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     stage.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
     setCurrentPage(page);
     setCurrentY(y);
-    saveProgressDebounced(page, y);
+    currentLocatorRef.current = { page, y };
+    scheduleProgressPersistence(page, y);
 
     // If highlight specified, temporarily flash it
     if (highlightId) {
@@ -293,12 +376,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setLastHighlightColor(color);
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
+    const yVal = selectedRects.length > 0 ? selectedRects[0].y : currentY;
 
     const newHl: LocalHighlight = {
       id,
       documentId,
       page: selectedPageNum,
-      locator: { page: selectedPageNum, y: currentY },
+      locator: { page: selectedPageNum, y: yVal },
       quoteText: selectedText,
       color,
       rects: selectedRects,
@@ -318,20 +402,33 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
     setSelectionToolbarPos(null);
     setSelectedText('');
+    return id;
   };
 
-  // Trigger quick note from selection toolbar
-  const handleAddNoteFromSelection = (quote: string) => {
+  // Requirement 4: Selection -> Note Source Accuracy (Links highlight and passes exact page/locator)
+  const handleAddNoteFromSelection = async (quote: string) => {
+    const hlId = await handleCreateHighlight(lastHighlightColor);
+    const yVal = selectedRects.length > 0 ? selectedRects[0].y : currentY;
+
     setInitialComposerQuote(quote);
     setInitialComposerType('quick');
+    setInitialComposerPage(selectedPageNum);
+    setInitialComposerY(yVal);
+    setInitialComposerHighlightId(hlId);
     setNotesOpen(true);
     setSelectionToolbarPos(null);
   };
 
-  // Trigger question from selection toolbar
-  const handleAddQuestionFromSelection = (quote: string) => {
+  // Requirement 4: Selection -> Question Source Accuracy
+  const handleAddQuestionFromSelection = async (quote: string) => {
+    const hlId = await handleCreateHighlight(lastHighlightColor);
+    const yVal = selectedRects.length > 0 ? selectedRects[0].y : currentY;
+
     setInitialComposerQuote(quote);
     setInitialComposerType('question');
+    setInitialComposerPage(selectedPageNum);
+    setInitialComposerY(yVal);
+    setInitialComposerHighlightId(hlId);
     setNotesOpen(true);
     setSelectionToolbarPos(null);
   };
@@ -358,6 +455,111 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setActiveHighlightPopup(null);
   };
 
+  // Requirement 7: Quick Parking Note submit handler
+  const handleSaveQuickPark = async () => {
+    if (!localDB || !quickParkText.trim()) return;
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+
+    // Deactivate previous active parking notes
+    const existing = await localDB.notes
+      .where('documentId')
+      .equals(documentId)
+      .filter(n => n.type === 'parking' && !!n.isActiveParking)
+      .toArray();
+
+    for (const p of existing) {
+      await localDB.notes.update(p.id, { isActiveParking: false, updatedAt: now });
+      await enqueueSync('note', p.id, 'upsert', { ...p, isActiveParking: false, updatedAt: now });
+    }
+
+    const newNote: LocalNote = {
+      id,
+      documentId,
+      type: 'parking',
+      noteText: quickParkText.trim(),
+      page: currentPage,
+      y: currentY,
+      locator: { page: currentPage, y: currentY },
+      isActiveParking: true,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await localDB.notes.add(newNote);
+    await enqueueSync('note', id, 'upsert', newNote);
+    setNotes(prev => [...prev.map(n => n.type === 'parking' ? { ...n, isActiveParking: false } : n), newNote]);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    setQuickParkText('');
+    setQuickParkOpen(false);
+    setQuickParkNotification('📌 Đã lưu Parking Note cho lần đọc tới.');
+    setTimeout(() => setQuickParkNotification(null), 3000);
+  };
+
+  // Requirement 8: Desktop Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput = activeEl && (
+        ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) ||
+        activeEl.isContentEditable
+      );
+
+      // ESC closes open modals / panels / toolbars
+      if (e.key === 'Escape') {
+        if (shortcutsModalOpen) { setShortcutsModalOpen(false); return; }
+        if (quickParkOpen) { setQuickParkOpen(false); return; }
+        if (mobileMenuOpen) { setMobileMenuOpen(false); return; }
+        if (selectionToolbarPos) { setSelectionToolbarPos(null); return; }
+        if (activeHighlightPopup) { setActiveHighlightPopup(null); return; }
+        if (notesOpen) { setNotesOpen(false); return; }
+        if (focusMode) { setFocusMode(false); return; }
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setFocusMode(prev => !prev);
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setInitialComposerType('quick');
+        setInitialComposerQuote(null);
+        setInitialComposerPage(currentPage);
+        setInitialComposerY(currentY);
+        setNotesOpen(true);
+      } else if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
+        setInitialComposerType('question');
+        setInitialComposerQuote(null);
+        setInitialComposerPage(currentPage);
+        setInitialComposerY(currentY);
+        setNotesOpen(true);
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        setQuickParkOpen(prev => !prev);
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))));
+      } else if (e.key === '-') {
+        e.preventDefault();
+        setScale(s => Math.max(0.7, Number((s - 0.15).toFixed(2))));
+      } else if (e.key === '?') {
+        e.preventDefault();
+        setShortcutsModalOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, currentY, focusMode, notesOpen, quickParkOpen, shortcutsModalOpen, mobileMenuOpen, selectionToolbarPos, activeHighlightPopup]);
+
   // Active parking note and open question for Resume Toast
   const activeParkingNote = useMemo(() => {
     return notes.find(n => n.type === 'parking' && !!n.isActiveParking) ?? null;
@@ -381,20 +583,30 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   };
 
   return (
-    <div className="readerShell" style={{ background: getThemeBg() }}>
+    <div className={`readerShell ${focusMode ? 'focusMode' : ''}`} style={{ background: getThemeBg() }}>
       {/* Top Header */}
       {!focusMode && (
         <header className="readerTop">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <Link href="/" className="secondary" style={{ fontSize: 13, padding: '6px 12px' }}>
-              ← Library
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link href="/" className="secondary" style={{ fontSize: 13, padding: '5px 10px' }} title="Về thư viện sách">
+              ← Thư viện
             </Link>
-            <strong style={{ fontSize: 15, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <strong
+              style={{
+                fontSize: 14,
+                maxWidth: 240,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              title={doc?.title}
+            >
               {doc?.title || 'Tài liệu'}
             </strong>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Desktop Controls */}
+          <div className="desktopOnly" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Page navigation */}
             <div style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span>Trang</span>
@@ -404,73 +616,76 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                 max={totalPages}
                 value={currentPage}
                 onChange={(e) => {
-                  const p = parseInt(e.target.value, 10);
-                  if (!isNaN(p) && p >= 1 && p <= totalPages) {
-                    jumpToPageAndY(p, 0);
+                  const val = parseInt(e.target.value, 10);
+                  if (val >= 1 && val <= totalPages) {
+                    jumpToPageAndY(val, 0);
                   }
                 }}
-                style={{ width: 44, textAlign: 'center', padding: '2px 4px', borderRadius: 6, border: '1px solid var(--line)' }}
+                style={{
+                  width: 48,
+                  padding: '3px 4px',
+                  borderRadius: 6,
+                  border: '1px solid var(--line)',
+                  background: 'var(--panel)',
+                  textAlign: 'center',
+                  fontSize: 13
+                }}
               />
               <span>/ {totalPages}</span>
             </div>
 
-            {/* Zoom controls */}
-            <div style={{ display: 'flex', gap: 2 }}>
+            {/* Zoom Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 8 }}>
               <button
                 className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12 }}
-                onClick={() => setScale(s => Math.max(0.7, s - 0.15))}
-                title="Thu nhỏ"
+                style={{ fontSize: 12, padding: '4px 8px' }}
+                onClick={() => setScale(s => Math.max(0.7, Number((s - 0.15).toFixed(2))))}
+                title="Thu nhỏ (-)"
               >
                 －
               </button>
-              <button
-                className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12 }}
-                onClick={() => setScale(1.15)}
-                title="Fit Width chuẩn"
-              >
+              <span style={{ fontSize: 11, minWidth: 36, textAlign: 'center', color: 'var(--muted)' }}>
                 {Math.round(scale * 100)}%
-              </button>
+              </span>
               <button
                 className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12 }}
-                onClick={() => setScale(s => Math.min(2.5, s + 0.15))}
-                title="Phóng to"
+                style={{ fontSize: 12, padding: '4px 8px' }}
+                onClick={() => setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))))}
+                title="Phóng to (+)"
               >
                 ＋
               </button>
             </div>
 
-            {/* Theme surrounding selector */}
-            <div style={{ display: 'flex', gap: 2 }}>
+            {/* Reading Background Toggles */}
+            <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
               <button
-                className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12, ...(theme === 'warm' ? { background: '#ded9ce' } : {}) }}
+                className={`secondary ${theme === 'warm' ? 'activePill' : ''}`}
+                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'warm' ? { background: '#ded6c5', borderColor: '#bbb' } : {}) }}
                 onClick={() => setTheme('warm')}
-                title="Surrounding: Ấm áp"
+                title="Nền sách giấy ấm"
               >
-                ☕
+                Ấm
               </button>
               <button
-                className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12, ...(theme === 'white' ? { background: '#ded9ce' } : {}) }}
+                className={`secondary ${theme === 'white' ? 'activePill' : ''}`}
+                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'white' ? { background: '#ffffff', borderColor: '#bbb' } : {}) }}
                 onClick={() => setTheme('white')}
-                title="Surrounding: Trắng"
+                title="Nền trắng sáng"
               >
-                ⚪
+                Sáng
               </button>
               <button
-                className="secondary"
-                style={{ padding: '4px 8px', fontSize: 12, ...(theme === 'dark' ? { background: '#ded9ce' } : {}) }}
+                className={`secondary ${theme === 'dark' ? 'activePill' : ''}`}
+                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'dark' ? { background: '#252925', color: '#fff', borderColor: '#555' } : {}) }}
                 onClick={() => setTheme('dark')}
-                title="Surrounding: Tối"
+                title="Nền tối"
               >
-                🌙
+                Tối
               </button>
             </div>
 
-            {/* Notes Panel toggle */}
+            {/* Notes Toggle Button */}
             <button
               className="secondary"
               style={{
@@ -478,16 +693,19 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                ...(notesOpen ? { background: '#eee8dc' } : {})
+                padding: '6px 12px',
+                marginLeft: 8,
+                ...(notesOpen ? { background: 'var(--deep)', color: 'white' } : {})
               }}
               onClick={() => setNotesOpen(!notesOpen)}
+              title="Mở ghi chú (N)"
             >
-              <span>✎ Notes</span>
+              <span>✎ Ghi chú</span>
               {notes.length > 0 && (
                 <span
                   style={{
-                    background: 'var(--terracotta)',
-                    color: 'white',
+                    background: notesOpen ? 'white' : 'var(--deep)',
+                    color: notesOpen ? 'var(--deep)' : 'white',
                     borderRadius: 999,
                     fontSize: 10,
                     padding: '1px 6px',
@@ -502,37 +720,121 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             {/* Focus Mode button */}
             <button
               className="secondary"
-              style={{ fontSize: 13 }}
+              style={{ fontSize: 13, padding: '6px 10px' }}
               onClick={() => setFocusMode(true)}
-              title="Chế độ tập trung"
+              title="Chế độ tập trung (F)"
             >
               ⛶ Focus
+            </button>
+
+            {/* Shortcuts help button */}
+            <button
+              className="secondary"
+              style={{ fontSize: 12, padding: '6px 8px' }}
+              onClick={() => setShortcutsModalOpen(true)}
+              title="Phím tắt (?)"
+            >
+              ?
+            </button>
+          </div>
+
+          {/* Mobile compact menu button */}
+          <div className="mobileOnly" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              className="secondary"
+              style={{ fontSize: 13, padding: '4px 8px' }}
+              onClick={() => setNotesOpen(!notesOpen)}
+            >
+              ✎ ({notes.length})
+            </button>
+            <button
+              className="secondary"
+              style={{ fontSize: 14, padding: '4px 8px' }}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              title="Tùy chọn"
+            >
+              ⋯
             </button>
           </div>
         </header>
       )}
 
-      {/* Focus mode exit button */}
+      {/* Mobile Options Dropdown Menu */}
+      {mobileMenuOpen && !focusMode && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 54,
+            right: 12,
+            zIndex: 1000,
+            background: 'var(--panel)',
+            border: '1px solid var(--line)',
+            borderRadius: 14,
+            boxShadow: 'var(--shadow)',
+            padding: 12,
+            display: 'grid',
+            gap: 10,
+            minWidth: 200
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Thu phóng</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="secondary" style={{ padding: '2px 8px' }} onClick={() => setScale(s => Math.max(0.7, s - 0.15))}>－</button>
+              <span style={{ fontSize: 12, minWidth: 36, textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
+              <button className="secondary" style={{ padding: '2px 8px' }} onClick={() => setScale(s => Math.min(2.5, s + 0.15))}>＋</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Nền đọc</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('warm')}>Ấm</button>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('white')}>Sáng</button>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('dark')}>Tối</button>
+            </div>
+          </div>
+
+          <button
+            className="secondary"
+            style={{ width: '100%', fontSize: 12, padding: '6px' }}
+            onClick={() => { setFocusMode(true); setMobileMenuOpen(false); }}
+          >
+            ⛶ Chế độ tập trung (Focus)
+          </button>
+          <button
+            className="secondary"
+            style={{ width: '100%', fontSize: 12, padding: '6px' }}
+            onClick={() => { setShortcutsModalOpen(true); setMobileMenuOpen(false); }}
+          >
+            ? Xem phím tắt
+          </button>
+        </div>
+      )}
+
+      {/* Focus Mode Exit Floating Button (Requirement 1) */}
       {focusMode && (
         <button
           className="secondary"
           style={{
             position: 'fixed',
-            top: 16,
-            right: 16,
-            zIndex: 100,
-            opacity: 0.6,
-            transition: 'opacity 0.2s'
+            top: 14,
+            right: 14,
+            zIndex: 1000,
+            background: 'rgba(255,253,248,0.92)',
+            boxShadow: 'var(--shadow)',
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 700
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.6'; }}
           onClick={() => setFocusMode(false)}
+          title="Thoát Focus (Esc hoặc F)"
         >
-          ✕ Exit Focus
+          ✕ Thoát Focus (F)
         </button>
       )}
 
-      {/* Main Reader Stage + Notes Panel */}
+      {/* Main Reader Stage + Slide-over Notes Panel */}
       <div className={`readerBody ${notesOpen ? 'notesOpen' : ''}`}>
         <main
           className="pdfStage"
@@ -544,7 +846,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             <div className="card" style={{ maxWidth: 480, padding: 32, textAlign: 'center', margin: '60px auto' }}>
               <h3>⚠️ File PDF chưa có trên thiết bị này</h3>
               <p className="muted" style={{ lineHeight: 1.5, margin: '12px 0 20px' }}>
-                StudyFlow không tải file PDF lên cloud nhằm bảo vệ sự riêng tư. Vui lòng chọn lại file PDF gốc trên máy bạn để tiếp tục.
+                StudyFlow lưu file PDF hoàn toàn trên trình duyệt (OPFS) của bạn để đảm bảo quyền riêng tư. Vui lòng chọn lại file PDF gốc trên máy bạn để tiếp tục đọc.
               </p>
               <button className="primary" onClick={() => setRelinkModalOpen(true)}>
                 📂 Relink PDF ngay
@@ -596,17 +898,119 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             onJumpToSource={jumpToPageAndY}
             initialComposerQuote={initialComposerQuote}
             initialComposerType={initialComposerType}
+            initialComposerPage={initialComposerPage}
+            initialComposerY={initialComposerY}
+            initialComposerHighlightId={initialComposerHighlightId}
             onClearInitialComposer={() => {
               setInitialComposerQuote(null);
+              setInitialComposerHighlightId(undefined);
             }}
           />
         )}
       </div>
 
-      {/* Bottom bar with Cassette Progress and Finish Tape CTA */}
+      {/* Quick Parking Note Dock Popover (Requirement 7) */}
+      {quickParkOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 60,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 900,
+            width: 'min(480px, 92vw)',
+            background: 'var(--panel)',
+            border: '1px solid var(--line)',
+            borderRadius: 16,
+            boxShadow: '0 12px 36px rgba(0,0,0,0.18)',
+            padding: 16,
+            animation: 'slideUp 0.2s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 13, color: 'var(--terracotta)' }}>📌 Ghim suy nghĩ (Parking Note)</strong>
+            <button className="secondary" style={{ border: 0, padding: '2px 6px' }} onClick={() => setQuickParkOpen(false)}>✕</button>
+          </div>
+          <p className="muted" style={{ fontSize: 12, margin: '0 0 8px' }}>
+            Tránh xao nhãng mạch đọc: ghi nhanh điều bạn đang nghĩ để lần sau mở sách có thể bắt lại ngay.
+          </p>
+          <textarea
+            value={quickParkText}
+            onChange={(e) => setQuickParkText(e.target.value)}
+            placeholder="Lần sau mình cần tiếp tục từ đâu? (Parking Note)"
+            rows={2}
+            autoFocus
+            style={{
+              width: '100%',
+              borderRadius: 8,
+              border: '1px solid var(--line)',
+              padding: 8,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              boxSizing: 'border-box'
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSaveQuickPark();
+              }
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+            <span className="muted" style={{ fontSize: 11 }}>Trang {currentPage}</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="secondary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setQuickParkOpen(false)}>Hủy</button>
+              <button className="primary" style={{ fontSize: 12, padding: '4px 14px' }} onClick={handleSaveQuickPark}>Lưu (Enter)</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick parking notification toast */}
+      {quickParkNotification && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--deep)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 700,
+            zIndex: 1100,
+            boxShadow: 'var(--shadow)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {quickParkNotification}
+        </div>
+      )}
+
+      {/* Bottom bar with Cassette Progress, Quick Parking, and Finish Tape CTA */}
       {!focusMode && (
-        <footer className="readerBottom" style={{ justifyContent: 'space-between' }}>
-          <div style={{ flex: 1, maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <footer className="readerBottom" style={{ justifyContent: 'space-between', gap: 10 }}>
+          {/* Quick Park button (Requirement 7) */}
+          <button
+            className="secondary"
+            style={{
+              fontSize: 12,
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              whiteSpace: 'nowrap'
+            }}
+            onClick={() => setQuickParkOpen(prev => !prev)}
+            title="Ghim suy nghĩ nhanh (P)"
+          >
+            📌 Park
+          </button>
+
+          {/* Cassette Progress Center */}
+          <div style={{ flex: 1, maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <CassetteProgress value={coveragePct} />
             </div>
@@ -695,7 +1099,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         </div>
       )}
 
-      {/* Dismissible Resume Toast */}
+      {/* Dismissible Resume Toast (Requirement 15) */}
       <ResumeToast
         page={currentPage}
         activeParkingNote={activeParkingNote}
@@ -724,6 +1128,58 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             loadData();
           }}
         />
+      )}
+
+      {/* Keyboard Shortcuts Help Modal (Requirement 8) */}
+      {shortcutsModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            zIndex: 1200,
+            display: 'grid',
+            placeItems: 'center'
+          }}
+          onClick={() => setShortcutsModalOpen(false)}
+        >
+          <div
+            className="card"
+            style={{ width: 'min(420px, 92vw)', padding: 24, display: 'grid', gap: 12 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>⌨️ Phím tắt nhanh</h3>
+              <button className="secondary" style={{ border: 0 }} onClick={() => setShortcutsModalOpen(false)}>✕</button>
+            </div>
+            <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Tạo Quick Note</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>N</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Đặt câu hỏi (Question)</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>Q</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Ghim suy nghĩ (Parking Note)</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>P</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Bật / Thoát Focus Mode</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>F</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Phóng to / Thu nhỏ</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>+ / -</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Đóng popup / modal</span>
+                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>Esc</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

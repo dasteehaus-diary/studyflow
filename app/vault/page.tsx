@@ -23,8 +23,9 @@ export default function VaultPage() {
 
   return (
     <AppShell>
-      <div className="eyebrow">B-Side Vault</div>
-      <h1>Discovered: {unlockedRewards.length} / ???</h1>
+      <div className="eyebrow">Kho báu B-Side</div>
+      {/* Requirement 17: Discovered X / ??? without revealing total count */}
+      <h1>Đã khám phá: {unlockedRewards.length} / ???</h1>
       <p className="muted" style={{ maxWidth: 640, marginTop: -14, marginBottom: 28, lineHeight: 1.5 }}>
         Mỗi khi hoàn thành một cuộn băng tài liệu (Finish Tape), một món quà ngẫu nhiên từ thế giới B-Side sẽ được mở khóa và lưu giữ vĩnh viễn tại đây.
       </p>
@@ -53,7 +54,7 @@ export default function VaultPage() {
           );
         })}
 
-        {/* Mysterious locked placeholders */}
+        {/* Mysterious unnumbered locked placeholders (Requirement 17) */}
         {Array.from({ length: Math.max(4, 8 - unlockedRewards.length) }).map((_, i) => (
           <div
             key={`placeholder-${i}`}
@@ -61,7 +62,7 @@ export default function VaultPage() {
             style={{ opacity: 0.35, background: 'rgba(0,0,0,0.02)', borderStyle: 'dashed' }}
           >
             <div style={{ fontSize: 32 }}>📼</div>
-            <small>B-Side Track {unlockedRewards.length + i + 1}</small>
+            <small>???</small>
           </div>
         ))}
       </div>
@@ -110,7 +111,7 @@ export default function VaultPage() {
                 }}
               >
                 <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}>
-                  Chứng nhận
+                  Chứng nhận hoàn thành
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 15, margin: '4px 0', color: 'var(--ink)' }}>
                   {activePayload?.certificateRecipientTitle as string}
@@ -121,12 +122,9 @@ export default function VaultPage() {
               </div>
             )}
 
-            {/* Collectible display */}
+            {/* Collectible display (Requirement 16 - No rarity label) */}
             {activeModalReward.rewardType === 'collectible' && (
               <div style={{ background: '#f5f0e6', borderRadius: 12, padding: 14, margin: '12px 0', fontSize: 13 }}>
-                <span className="verifyBadge pass" style={{ display: 'inline-block', marginBottom: 6 }}>
-                  Rarity: {(activePayload?.collectibleRarity as string) || 'Rare'}
-                </span>
                 <p style={{ margin: 0, color: 'var(--muted)', fontStyle: 'italic' }}>
                   “{activePayload?.lore as string}”
                 </p>
@@ -158,29 +156,21 @@ export default function VaultPage() {
                 <button
                   className="secondary"
                   onClick={() => playRewardSound((activePayload?.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
                 >
-                  🔊 Phát lại âm thanh B-Side
+                  🔊 Phát âm thanh B-Side
                 </button>
               </div>
             )}
 
-            {/* Easter egg */}
-            {activeModalReward.rewardType === 'easter_egg' && (
-              <div style={{ background: '#f5f0e6', borderRadius: 12, padding: 14, margin: '12px 0', fontSize: 13 }}>
-                <p style={{ margin: '0 0 6px' }}>{activePayload?.surpriseText as string}</p>
-                <p className="muted" style={{ margin: 0, fontStyle: 'italic' }}>{activePayload?.postCreditText as string}</p>
-              </div>
-            )}
-
-            {/* Provenance snapshot */}
-            <div className="muted" style={{ fontSize: 12, marginTop: 18, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-              Mở khóa từ tài liệu: <strong>{activeModalReward.documentTitle || 'Tài liệu đã đọc'}</strong>
-              <div style={{ fontSize: 11, marginTop: 2 }}>{formatRelativeTime(activeModalReward.unlockedAt)}</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 16 }}>
+              Mở khóa từ tài liệu: <strong>{activeModalReward.documentTitle || 'Cuộn băng StudyFlow'}</strong>
+              <br />
+              <span style={{ fontSize: 11 }}>({formatRelativeTime(activeModalReward.unlockedAt)})</span>
             </div>
 
             <div style={{ marginTop: 20 }}>
-              <button className="primary" onClick={() => setActiveModalReward(null)}>
+              <button className="primary" style={{ padding: '8px 24px' }} onClick={() => setActiveModalReward(null)}>
                 Đóng
               </button>
             </div>

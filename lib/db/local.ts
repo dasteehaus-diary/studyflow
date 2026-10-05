@@ -8,8 +8,10 @@ export type LocalDocument = {
   fileHash: string;
   opfsPath: string;
   totalPages?: number;
+  fileSizeBytes?: number;
   tags: string[];
   status: 'in_progress' | 'completed' | 'archived';
+  thumbnail?: string;
   createdAt: string;
   updatedAt: string;
 };

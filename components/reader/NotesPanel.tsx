@@ -16,6 +16,9 @@ interface NotesPanelProps {
   onJumpToSource: (page: number, y: number, highlightId?: string) => void;
   initialComposerQuote?: string | null;
   initialComposerType?: 'quick' | 'question' | 'parking';
+  initialComposerPage?: number;
+  initialComposerY?: number;
+  initialComposerHighlightId?: string;
   onClearInitialComposer?: () => void;
 }
 
@@ -30,6 +33,9 @@ export function NotesPanel({
   onJumpToSource,
   initialComposerQuote,
   initialComposerType = 'quick',
+  initialComposerPage,
+  initialComposerY,
+  initialComposerHighlightId,
   onClearInitialComposer
 }: NotesPanelProps) {
   const [tab, setTab] = useState<'all' | 'quick' | 'question' | 'parking'>('all');
@@ -41,20 +47,28 @@ export function NotesPanel({
   const [noteText, setNoteText] = useState('');
   const [quoteText, setQuoteText] = useState('');
   const [targetPage, setTargetPage] = useState(currentPage);
+  const [targetY, setTargetY] = useState(currentY);
+  const [targetHighlightId, setTargetHighlightId] = useState<string | undefined>(undefined);
+
+  // Edit state (Requirement 14)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   // Resolution state
   const [resolvingNoteId, setResolvingNoteId] = useState<string | null>(null);
   const [resolutionInput, setResolutionInput] = useState('');
 
-  // Handle external quote/type triggered from reader selection
+  // Handle external quote/type triggered from reader selection (Requirement 4)
   useEffect(() => {
     if (initialComposerQuote !== undefined && initialComposerQuote !== null) {
       setComposerType(initialComposerType);
       setQuoteText(initialComposerQuote);
-      setTargetPage(currentPage);
+      setTargetPage(initialComposerPage !== undefined ? initialComposerPage : currentPage);
+      setTargetY(initialComposerY !== undefined ? initialComposerY : currentY);
+      setTargetHighlightId(initialComposerHighlightId);
       setComposerOpen(true);
     }
-  }, [initialComposerQuote, initialComposerType, currentPage]);
+  }, [initialComposerQuote, initialComposerType, initialComposerPage, initialComposerY, initialComposerHighlightId, currentPage, currentY]);
 
   // Handle Esc key to close panel
   useEffect(() => {
@@ -93,14 +107,15 @@ export function NotesPanel({
     const newNote: LocalNote = {
       id,
       documentId,
+      highlightId: targetHighlightId,
       type: composerType,
       noteText: noteText.trim(),
       quoteText: quoteText.trim() || undefined,
       page: targetPage,
-      y: currentY,
-      locator: { page: targetPage, y: currentY },
+      y: targetY,
+      locator: { page: targetPage, y: targetY },
       status: composerType === 'question' ? 'open' : undefined,
-      isActiveParking: composerType === 'parking' ? true : false,
+      isActiveParking: composerType === 'parking',
       createdAt: now,
       updatedAt: now
     };
@@ -116,8 +131,39 @@ export function NotesPanel({
 
     setNoteText('');
     setQuoteText('');
+    setTargetHighlightId(undefined);
     setComposerOpen(false);
     onClearInitialComposer?.();
+  };
+
+  // Requirement 14: Edit Note
+  const handleStartEdit = (note: LocalNote) => {
+    setEditingNoteId(note.id);
+    setEditingText(note.noteText);
+  };
+
+  const handleSaveEdit = async (noteId: string) => {
+    if (!localDB || !editingText.trim()) return;
+    const now = new Date().toISOString();
+    const existing = notes.find(n => n.id === noteId);
+    if (!existing) return;
+
+    const updated: LocalNote = {
+      ...existing,
+      noteText: editingText.trim(),
+      updatedAt: now
+    };
+
+    await localDB.notes.update(noteId, { noteText: updated.noteText, updatedAt: now });
+    await enqueueSync('note', noteId, 'upsert', updated);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    setEditingNoteId(null);
+    setEditingText('');
   };
 
   const handleResolveQuestion = async (note: LocalNote) => {
@@ -129,7 +175,7 @@ export function NotesPanel({
     const updated = {
       ...note,
       status: nextStatus as 'resolved' | 'reopened',
-      resolutionText: isNowResolved ? (resolutionInput.trim() || 'Resolved') : undefined,
+      resolutionText: isNowResolved ? (resolutionInput.trim() || 'Đã giải quyết') : undefined,
       updatedAt: now
     };
 
@@ -167,52 +213,57 @@ export function NotesPanel({
   const otherPageNotes = filteredNotes.filter(n => n.page !== currentPage);
 
   return (
-    <aside className="notesPanel" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div>
-          <div className="eyebrow">Notes & Thoughts</div>
-          <strong style={{ fontSize: 16 }}>Trang {currentPage}</strong>
-        </div>
+    <aside
+      className="notesPanel"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        boxSizing: 'border-box'
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h3 style={{ margin: 0, fontSize: 16 }}>Ghi chú & Suy nghĩ</h3>
         <button
           className="secondary"
-          style={{ fontSize: 12, padding: '4px 8px' }}
+          style={{ border: 0, fontSize: 16, padding: '2px 8px' }}
           onClick={onClose}
-          aria-label="Đóng panel"
+          title="Đóng panel"
         >
-          ✕ Esc
+          ✕
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="filterRow" style={{ marginBottom: 10, gap: 4 }}>
+      {/* Main Tabs */}
+      <div className="filterRow" style={{ margin: '0 0 10px 0', gap: 6 }}>
         <button
           className={`pill ${tab === 'all' ? 'activePill' : ''}`}
           style={{ fontSize: 11, padding: '4px 10px', ...(tab === 'all' ? { background: 'var(--deep)', color: 'white' } : {}) }}
           onClick={() => setTab('all')}
         >
-          All ({notes.length})
+          Tất cả ({notes.length})
         </button>
         <button
           className={`pill ${tab === 'quick' ? 'activePill' : ''}`}
           style={{ fontSize: 11, padding: '4px 10px', ...(tab === 'quick' ? { background: 'var(--deep)', color: 'white' } : {}) }}
           onClick={() => setTab('quick')}
         >
-          Notes
+          Ghi chú
         </button>
         <button
           className={`pill ${tab === 'question' ? 'activePill' : ''}`}
           style={{ fontSize: 11, padding: '4px 10px', ...(tab === 'question' ? { background: 'var(--deep)', color: 'white' } : {}) }}
           onClick={() => setTab('question')}
         >
-          Questions
+          Câu hỏi
         </button>
         <button
           className={`pill ${tab === 'parking' ? 'activePill' : ''}`}
           style={{ fontSize: 11, padding: '4px 10px', ...(tab === 'parking' ? { background: 'var(--deep)', color: 'white' } : {}) }}
           onClick={() => setTab('parking')}
         >
-          Parking
+          Parking Note
         </button>
       </div>
 
@@ -224,21 +275,21 @@ export function NotesPanel({
             style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'all' ? { fontWeight: 700 } : {}) }}
             onClick={() => setQuestionFilter('all')}
           >
-            All
+            Tất cả
           </button>
           <button
             className="secondary"
             style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'open' ? { fontWeight: 700, color: 'var(--rose)' } : {}) }}
             onClick={() => setQuestionFilter('open')}
           >
-            Open
+            Chưa giải quyết
           </button>
           <button
             className="secondary"
             style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'resolved' ? { fontWeight: 700, color: 'var(--olive)' } : {}) }}
             onClick={() => setQuestionFilter('resolved')}
           >
-            Resolved
+            Đã giải quyết
           </button>
         </div>
       )}
@@ -252,6 +303,8 @@ export function NotesPanel({
             setComposerType('quick');
             setQuoteText('');
             setTargetPage(currentPage);
+            setTargetY(currentY);
+            setTargetHighlightId(undefined);
             setComposerOpen(true);
           }}
         >
@@ -286,7 +339,7 @@ export function NotesPanel({
               style={{ fontSize: 11, padding: '3px 8px', ...(composerType === 'question' ? { background: 'var(--rose)', color: 'white' } : {}) }}
               onClick={() => setComposerType('question')}
             >
-              ❓ Question
+              ❓ Câu hỏi
             </button>
             <button
               type="button"
@@ -318,7 +371,7 @@ export function NotesPanel({
             onChange={(e) => setNoteText(e.target.value)}
             placeholder={
               composerType === 'parking'
-                ? 'Lời nhắn cho lần đọc sau: Đang nghĩ gì? Lần tới cần làm gì?'
+                ? 'Lần sau mình cần tiếp tục từ đâu? (Parking Note)'
                 : composerType === 'question'
                 ? 'Điều gì chưa hiểu? Cần làm rõ gì?'
                 : 'Suy nghĩ tức thời…'
@@ -396,6 +449,7 @@ export function NotesPanel({
     const isParking = note.type === 'parking';
     const isQuestion = note.type === 'question';
     const isResolved = note.status === 'resolved';
+    const isEditing = editingNoteId === note.id;
 
     return (
       <div
@@ -440,9 +494,18 @@ export function NotesPanel({
                 className={`verifyBadge ${isResolved ? 'pass' : 'fail'}`}
                 style={{ fontSize: 9, padding: '2px 6px' }}
               >
-                {isResolved ? '✓ Resolved' : '❓ Open'}
+                {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}
               </span>
             )}
+            {/* Edit button (Requirement 14) */}
+            <button
+              className="secondary"
+              style={{ border: 0, padding: '2px 6px', fontSize: 11 }}
+              onClick={() => handleStartEdit(note)}
+              title="Chỉnh sửa ghi chú"
+            >
+              ✎ Sửa
+            </button>
             <button
               className="secondary danger"
               style={{ border: 0, padding: '2px 4px', fontSize: 11 }}
@@ -454,56 +517,126 @@ export function NotesPanel({
           </div>
         </div>
 
+        {/* Linked Highlight Quote */}
         {note.quoteText && (
           <div
             className="noteQuote"
-            style={{ fontSize: 12, maxHeight: 48, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            style={{
+              fontSize: 12,
+              fontStyle: 'italic',
+              cursor: 'pointer'
+            }}
+            onClick={() => onJumpToSource(note.page, note.y, note.highlightId)}
+            title="Bấm để nhảy tới trích dẫn này trên trang sách"
           >
             “{note.quoteText}”
           </div>
         )}
 
-        <div style={{ fontSize: 13, lineHeight: 1.4, color: 'var(--ink)' }}>
-          {note.noteText}
-        </div>
-
-        {note.resolutionText && (
-          <div style={{ fontSize: 12, color: 'var(--olive)', background: '#eef3e8', padding: '4px 8px', borderRadius: 6 }}>
-            ✓ {note.resolutionText}
+        {/* Note Body (Editable) */}
+        {isEditing ? (
+          <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
+            <textarea
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              rows={3}
+              style={{
+                width: '100%',
+                borderRadius: 6,
+                border: '1px solid var(--line)',
+                padding: 6,
+                fontSize: 13,
+                fontFamily: 'inherit'
+              }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+              <button
+                type="button"
+                className="secondary"
+                style={{ fontSize: 11, padding: '2px 8px' }}
+                onClick={() => setEditingNoteId(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="primary"
+                style={{ fontSize: 11, padding: '2px 10px' }}
+                onClick={() => handleSaveEdit(note.id)}
+              >
+                Lưu
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
+            {note.noteText}
           </div>
         )}
 
-        {/* Question actions */}
+        {/* Resolution section for Questions */}
         {isQuestion && (
-          <div style={{ marginTop: 4 }}>
+          <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px dashed var(--line)' }}>
             {resolvingNoteId === note.id ? (
-              <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+              <div style={{ display: 'grid', gap: 6 }}>
                 <input
                   type="text"
-                  placeholder="Tôi đã hiểu: ... (tuỳ chọn)"
+                  placeholder="Ghi chú giải đáp (tùy chọn)…"
                   value={resolutionInput}
                   onChange={(e) => setResolutionInput(e.target.value)}
-                  style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line)' }}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: '1px solid var(--line)',
+                    fontSize: 12
+                  }}
+                  autoFocus
                 />
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                  <button className="secondary" style={{ fontSize: 11, padding: '2px 6px' }} onClick={() => setResolvingNoteId(null)}>Hủy</button>
-                  <button className="primary" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => handleResolveQuestion(note)}>Xác nhận</button>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button
+                    className="secondary"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => setResolvingNoteId(null)}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    className="primary"
+                    style={{ fontSize: 11, padding: '2px 10px', background: 'var(--olive)' }}
+                    onClick={() => handleResolveQuestion(note)}
+                  >
+                    Xác nhận giải quyết
+                  </button>
                 </div>
               </div>
             ) : (
-              <button
-                className="secondary"
-                style={{ fontSize: 11, padding: '3px 8px' }}
-                onClick={() => {
-                  if (isResolved) {
-                    handleResolveQuestion(note);
-                  } else {
-                    setResolvingNoteId(note.id);
-                  }
-                }}
-              >
-                {isResolved ? 'Mở lại câu hỏi' : '✓ I got it (Đã hiểu)'}
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {isResolved && note.resolutionText && (
+                  <span className="muted" style={{ fontSize: 11, fontStyle: 'italic' }}>
+                    Giải đáp: “{note.resolutionText}”
+                  </span>
+                )}
+                <button
+                  className="secondary"
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    marginLeft: 'auto',
+                    color: isResolved ? 'var(--muted)' : 'var(--olive)'
+                  }}
+                  onClick={() => {
+                    if (isResolved) {
+                      handleResolveQuestion(note);
+                    } else {
+                      setResolvingNoteId(note.id);
+                      setResolutionInput('');
+                    }
+                  }}
+                >
+                  {isResolved ? '↩ Mở lại câu hỏi' : '✓ Đánh dấu đã hiểu'}
+                </button>
+              </div>
             )}
           </div>
         )}

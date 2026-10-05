@@ -7,6 +7,7 @@ import { ContinueCard } from '@/components/ContinueCard';
 import { DocumentCard } from '@/components/DocumentCard';
 import { ImportPdfModal } from '@/components/ImportPdfModal';
 import { localDB, type LocalDocument, type LocalProgress, type LocalNote } from '@/lib/db/local';
+import { selectContinueDocument } from '@/lib/documents/selectors';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -60,16 +61,9 @@ export default function HomePage() {
     return Array.from(tags).sort();
   }, [documents]);
 
-  // Determine Continue Document (most recently active non-archived document)
+  // Requirement 10: Determine Continue Document (Prioritize in-progress & non-completed)
   const continueDoc = useMemo(() => {
-    const activeDocs = documents.filter(d => d.status !== 'archived');
-    if (activeDocs.length === 0) return null;
-
-    return [...activeDocs].sort((a, b) => {
-      const progA = progressMap[a.id]?.lastMeaningfulActivityAt || a.updatedAt;
-      const progB = progressMap[b.id]?.lastMeaningfulActivityAt || b.updatedAt;
-      return new Date(progB).getTime() - new Date(progA).getTime();
-    })[0];
+    return selectContinueDocument(documents, progressMap);
   }, [documents, progressMap]);
 
   // Filtered documents for the library grid
@@ -84,8 +78,8 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <div className="eyebrow">Personal Library</div>
-      <h1>Pick up where your brain left off.</h1>
+      <div className="eyebrow">Thư viện cá nhân</div>
+      <h1>Tiếp tục đúng nơi suy nghĩ của bạn dừng lại.</h1>
 
       {/* Continue First Section */}
       {continueDoc && (
@@ -98,7 +92,7 @@ export default function HomePage() {
 
       {/* Library Section */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
-        <h2>My Library</h2>
+        <h2>Tủ sách của tôi</h2>
         <button
           className="primary"
           style={{ padding: '8px 14px', fontSize: 13 }}
@@ -107,7 +101,7 @@ export default function HomePage() {
             setIsImportOpen(true);
           }}
         >
-          ＋ Import PDF
+          ＋ Thêm sách PDF
         </button>
       </div>
 
@@ -118,7 +112,7 @@ export default function HomePage() {
           style={selectedTag === 'All' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : undefined}
           onClick={() => setSelectedTag('All')}
         >
-          All
+          Tất cả
         </button>
         {allTags.map(tag => (
           <button
@@ -135,7 +129,7 @@ export default function HomePage() {
           style={selectedTag === 'Archived' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : undefined}
           onClick={() => setSelectedTag('Archived')}
         >
-          📦 Archived
+          📦 Đã lưu trữ
         </button>
       </div>
 
@@ -170,7 +164,7 @@ export default function HomePage() {
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>＋</div>
-            <strong>Import PDF</strong>
+            <strong>Thêm PDF</strong>
             <div style={{ fontSize: 11, marginTop: 4 }}>Lưu trữ an toàn trong OPFS</div>
           </div>
         </div>
@@ -194,16 +188,18 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Dev spike link */}
-      <section className="devSpikeLink">
-        <div>
-          <strong>Phase 0 technical spike</strong>
-          <div className="muted">OPFS verification and persistence harness.</div>
-        </div>
-        <Link className="secondary" href="/spike/local-pdf">
-          Technical Spikes →
-        </Link>
-      </section>
+      {/* Dev spike link - hidden on production (Requirement 11) */}
+      {process.env.NODE_ENV === 'development' && (
+        <section className="devSpikeLink">
+          <div>
+            <strong>Phase 0 technical spike</strong>
+            <div className="muted">OPFS verification and persistence harness.</div>
+          </div>
+          <Link className="secondary" href="/spike/local-pdf">
+            Technical Spikes →
+          </Link>
+        </section>
+      )}
 
       {/* Import / Relink Modal */}
       <ImportPdfModal
