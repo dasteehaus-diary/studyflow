@@ -65,3 +65,15 @@ export async function removePdfFromOPFS(documentId: string) {
     throw error;
   }
 }
+
+export async function clearAllPdfFromOPFS() {
+  assertBrowser();
+  if (!supportsOPFS()) return;
+  try {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(ROOT_DIR, { recursive: true });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotFoundError') return;
+    console.warn('OPFS directory already empty or not found:', error);
+  }
+}

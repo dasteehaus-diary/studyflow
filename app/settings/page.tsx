@@ -3,7 +3,7 @@
 import { useState, useEffect, ChangeEvent } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { localDB, type HighlightColor } from '@/lib/db/local';
-import { supportsOPFS, isPersistentStorageGranted, requestPersistentStorage } from '@/lib/storage/opfs';
+import { supportsOPFS, isPersistentStorageGranted, requestPersistentStorage, clearAllPdfFromOPFS } from '@/lib/storage/opfs';
 import {
   exportStudyFlowBackup,
   restoreStudyFlowBackup,
@@ -69,6 +69,11 @@ export default function SettingsPage() {
     // Check Service Worker status
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       setSwActive(Boolean(navigator.serviceWorker.controller));
+    }
+
+    // Support direct 1-click reset via link: /settings?reset=now
+    if (typeof window !== 'undefined' && (window.location.search.includes('reset=now') || window.location.search.includes('reset=all'))) {
+      handleClearAllData(true);
     }
 
     // Fetch reminder diagnostics from Supabase if authenticated
@@ -271,6 +276,68 @@ export default function SettingsPage() {
         type: 'error',
         text: `Lỗi phục hồi: ${err instanceof Error ? err.message : String(err)}`
       });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  // One-click Clear All Test Data & Reset (OPFS, IndexedDB, Cloud, Cache)
+  const handleClearAllData = async (force: boolean = false) => {
+    if (!force) {
+      const ok = window.confirm(
+        '⚠️ BẠN CÓ CHẮC CHẮN MUỐN XÓA TOÀN BỘ DỮ LIỆU THỬ NGHIỆM?\n\n' +
+        'Thao tác này sẽ dọn dẹp sạch sẽ:\n' +
+        '• Tất cả file PDF lưu trong bộ nhớ máy (OPFS)\n' +
+        '• Toàn bộ Kệ sách, lịch sử trang đọc, tiến độ cuộn băng\n' +
+        '• Toàn bộ ghi chú, câu hỏi, Parking Notes, Highlight\n' +
+        '• Kho phần thưởng B-Side Vault\n\n' +
+        'Ứng dụng sẽ trở về trạng thái sạch ban đầu.'
+      );
+      if (!ok) return;
+    }
+
+    setBackupBusy(true);
+    try {
+      // 1. Clear OPFS storage
+      await clearAllPdfFromOPFS();
+
+      // 2. Clear IndexedDB
+      if (localDB) {
+        await localDB.documents.clear();
+        await localDB.progress.clear();
+        await localDB.highlights.clear();
+        await localDB.notes.clear();
+        await localDB.readingSessions.clear();
+        await localDB.unlockedRewards.clear();
+        await localDB.syncQueue.clear();
+      }
+
+      // 3. Clear cloud tables if user is logged in
+      if (user && isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('notes').delete().eq('user_id', user.id);
+          await supabase.from('highlights').delete().eq('user_id', user.id);
+          await supabase.from('document_progress').delete().eq('user_id', user.id);
+          await supabase.from('documents').delete().eq('user_id', user.id);
+          await supabase.from('reading_sessions').delete().eq('user_id', user.id);
+          await supabase.from('unlocked_rewards').delete().eq('user_id', user.id);
+          await supabase.from('reminder_preferences').delete().eq('user_id', user.id);
+        } catch (cloudErr) {
+          console.warn('Could not clear cloud tables:', cloudErr);
+        }
+      }
+
+      // 4. Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('studyflow_theme');
+      }
+
+      // 5. Notify & Redirect to Library
+      alert('✓ Đã dọn dẹp sạch toàn bộ dữ liệu học tập thử nghiệm!');
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Failed to clear data:', err);
+      alert('Lỗi khi xóa dữ liệu: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setBackupBusy(false);
     }
@@ -564,6 +631,23 @@ export default function SettingsPage() {
                   hidden
                 />
               </label>
+
+              {/* Clear All Test Data */}
+              <button
+                className="secondary"
+                style={{
+                  fontSize: 13,
+                  padding: '8px 16px',
+                  color: 'var(--terracotta)',
+                  borderColor: 'var(--terracotta)',
+                  cursor: backupBusy ? 'not-allowed' : 'pointer'
+                }}
+                disabled={backupBusy}
+                onClick={() => handleClearAllData(false)}
+                title="Dọn dẹp sạch sẽ toàn bộ file PDF, tiến độ đọc, ghi chú và kho B-Side thử nghiệm"
+              >
+                🗑️ Xóa toàn bộ dữ liệu thử nghiệm
+              </button>
             </div>
 
             {backupMessage && (
