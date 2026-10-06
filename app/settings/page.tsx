@@ -118,10 +118,11 @@ export default function SettingsPage() {
   // Backup Export
   const handleExportBackup = async (includePdfBytes: boolean) => {
     if (includePdfBytes && backupEstimate?.isLarge) {
-      const confirmed = window.confirm(
-        `Tổng dung lượng file PDF hiện tại là ${backupEstimate.pdfTotalMB} MB (lớn hơn 50MB).\n\nViệc đóng gói toàn bộ PDF vào JSON có thể gây lag hoặc tràn bộ nhớ trình duyệt.\n\nBạn có chắc chắn muốn tiếp tục xuất toàn bộ PDF không?`
-      );
-      if (!confirmed) return;
+      setBackupMessage({
+        type: 'error',
+        text: `Đã chặn xuất PDF bundle: Tổng dung lượng (${backupEstimate.pdfTotalMB} MB) vượt ngưỡng an toàn 50MB. Vui lòng chọn "Xuất dữ liệu học" (ghi chú, trích dẫn, tiến độ) để tránh làm sập trình duyệt.`
+      });
+      return;
     }
 
     setBackupBusy(true);
@@ -357,9 +358,9 @@ export default function SettingsPage() {
                 marginTop: 10,
                 padding: '8px 12px',
                 borderRadius: 6,
-                background: testResult.type === 'success' ? '#eaf4eb' : '#fdf0ee',
-                color: testResult.type === 'success' ? '#2e6930' : '#a83232',
-                border: `1px solid ${testResult.type === 'success' ? '#b8e0bc' : '#f5c2bc'}`
+                background: testResult.type === 'success' ? 'var(--banner-success-bg)' : 'var(--banner-error-bg)',
+                color: testResult.type === 'success' ? 'var(--banner-success-text)' : 'var(--banner-error-text)',
+                border: `1px solid ${testResult.type === 'success' ? 'var(--banner-success-border)' : 'var(--banner-error-border)'}`
               }}
             >
               {testResult.type === 'success' ? '✓ ' : '❌ '}
@@ -412,17 +413,17 @@ export default function SettingsPage() {
             {backupEstimate?.isLarge && (
               <div
                 style={{
-                  background: '#fff9ea',
-                  border: '1px solid #fae19c',
+                  background: 'var(--banner-warn-bg)',
+                  border: '1px solid var(--banner-warn-border)',
                   borderRadius: 8,
                   padding: '10px 14px',
                   fontSize: 12,
-                  color: '#7c5800',
+                  color: 'var(--banner-warn-text)',
                   marginBottom: 14,
                   lineHeight: 1.5
                 }}
               >
-                ⚠️ <strong>Lưu ý dung lượng lớn ({backupEstimate.pdfTotalMB} MB):</strong> Tổng dung lượng PDF trên máy vượt quá 50MB. Để tránh lag hoặc tràn bộ nhớ trình duyệt, khuyên bạn nên chọn <strong>&quot;Xuất dữ liệu học&quot;</strong> (nhẹ, nhanh và an toàn).
+                🚫 <strong>Đã chặn xuất PDF bundle ({backupEstimate.pdfTotalMB} MB):</strong> Dung lượng PDF vượt quá giới hạn an toàn 50MB cho phương thức Base64 JSON. Vui lòng chọn <strong>&quot;Xuất dữ liệu học&quot;</strong> (nhẹ, nhanh và an toàn) để lưu trữ toàn bộ ghi chú và tiến độ mà không sợ tràn RAM.
               </div>
             )}
 
@@ -441,12 +442,21 @@ export default function SettingsPage() {
               {/* Option B: Full Bundle with PDF */}
               <button
                 className="secondary"
-                style={{ fontSize: 13, padding: '8px 16px' }}
-                disabled={backupBusy}
+                style={{
+                  fontSize: 13,
+                  padding: '8px 16px',
+                  opacity: backupEstimate?.isLarge ? 0.5 : 1,
+                  cursor: backupEstimate?.isLarge ? 'not-allowed' : 'pointer'
+                }}
+                disabled={backupBusy || Boolean(backupEstimate?.isLarge)}
                 onClick={() => handleExportBackup(true)}
-                title="Xuất toàn bộ bao gồm cả các file PDF lưu trữ trong OPFS"
+                title={backupEstimate?.isLarge ? 'Đã chặn xuất vì dung lượng PDF vượt quá 50MB an toàn' : 'Xuất toàn bộ bao gồm cả các file PDF'}
               >
-                {backupBusy ? 'Đang đóng gói…' : `📦 Xuất toàn bộ kèm PDF (${backupEstimate ? `${backupEstimate.pdfTotalMB} MB` : 'Full'})`}
+                {backupBusy
+                  ? 'Đang xử lý…'
+                  : backupEstimate?.isLarge
+                  ? `🚫 Đã chặn PDF (${backupEstimate.pdfTotalMB} MB > 50MB)`
+                  : `📦 Xuất toàn bộ kèm PDF (${backupEstimate ? `${backupEstimate.pdfTotalMB} MB` : 'Full'})`}
               </button>
 
               {/* Restore Button */}
@@ -478,9 +488,9 @@ export default function SettingsPage() {
                   fontSize: 13,
                   padding: '10px 14px',
                   borderRadius: 6,
-                  background: backupMessage.type === 'success' ? '#eaf4eb' : '#fdf0ee',
-                  color: backupMessage.type === 'success' ? '#2e6930' : '#a83232',
-                  border: `1px solid ${backupMessage.type === 'success' ? '#b8e0bc' : '#f5c2bc'}`
+                  background: backupMessage.type === 'success' ? 'var(--banner-success-bg)' : 'var(--banner-error-bg)',
+                  color: backupMessage.type === 'success' ? 'var(--banner-success-text)' : 'var(--banner-error-text)',
+                  border: `1px solid ${backupMessage.type === 'success' ? 'var(--banner-success-border)' : 'var(--banner-error-border)'}`
                 }}
               >
                 {backupMessage.text}

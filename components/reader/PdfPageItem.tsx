@@ -14,6 +14,7 @@ interface PdfPageItemProps {
   onTextSelected: (pageNumber: number, text: string, rects: LocalHighlight['rects'], clientPos: { x: number; y: number }) => void;
   onHighlightClick: (highlight: LocalHighlight, clientPos: { x: number; y: number }) => void;
   onPageVisible?: (pageNumber: number) => void;
+  onRegisterElement?: (pageNumber: number, el: HTMLDivElement | null) => void;
 }
 
 const COLOR_MAP: Record<HighlightColor, string> = {
@@ -30,9 +31,17 @@ export function PdfPageItem({
   estimatedHeight,
   highlights,
   onTextSelected,
-  onHighlightClick
+  onHighlightClick,
+  onRegisterElement
 }: PdfPageItemProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const setContainerRef = (el: HTMLDivElement | null) => {
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (onRegisterElement) {
+      onRegisterElement(pageNumber, el);
+    }
+  };
 
   const handleMouseUp = (e: MouseEvent) => {
     const selection = window.getSelection();
@@ -75,7 +84,7 @@ export function PdfPageItem({
     return (
       <div
         id={`page-container-${pageNumber}`}
-        ref={containerRef}
+        ref={setContainerRef}
         style={{
           width: 'min(820px, 92vw)',
           height: estimatedHeight,
@@ -97,7 +106,7 @@ export function PdfPageItem({
   return (
     <div
       id={`page-container-${pageNumber}`}
-      ref={containerRef}
+      ref={setContainerRef}
       onMouseUp={handleMouseUp}
       style={{
         position: 'relative',

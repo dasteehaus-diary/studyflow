@@ -51,7 +51,7 @@ export function ResumeToast({ page, activeParkingNote, openQuestion, onDismiss }
       {activeParkingNote && (
         <div style={{ fontSize: 13, lineHeight: 1.4 }}>
           <strong>📌 Parking Note:</strong>
-          <div style={{ marginTop: 3, color: 'var(--ink)', background: 'rgba(235, 226, 212, 0.6)', padding: '8px 12px', borderRadius: 8, fontStyle: 'italic' }}>
+          <div style={{ marginTop: 3, color: 'var(--ink)', background: 'var(--card-subtle)', padding: '8px 12px', borderRadius: 8, fontStyle: 'italic' }}>
             “{activeParkingNote.noteText}”
           </div>
         </div>

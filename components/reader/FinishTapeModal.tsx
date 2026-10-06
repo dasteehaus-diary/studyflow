@@ -163,7 +163,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
             {unlockedReward.rewardType === 'certificate' && (
               <div
                 style={{
-                  background: '#f9f6ef',
+                  background: 'var(--card-subtle)',
                   border: '2px dashed var(--olive-cream)',
                   borderRadius: 12,
                   padding: 14,
@@ -184,7 +184,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
             )}
 
             {unlockedReward.rewardType === 'collectible' && (
-              <div style={{ background: '#f5f0e6', borderRadius: 12, padding: 12, margin: '12px 0', fontSize: 13 }}>
+              <div style={{ background: 'var(--card-subtle)', borderRadius: 12, padding: 12, margin: '12px 0', fontSize: 13 }}>
                 <p style={{ margin: 0, color: 'var(--muted)', fontStyle: 'italic' }}>
                   “{payload?.lore as string}”
                 </p>

@@ -83,6 +83,8 @@ export async function getBackupEstimate(): Promise<BackupEstimate> {
   };
 }
 
+export const MAX_SAFE_PDF_BUNDLE_BYTES = 50 * 1024 * 1024; // 50MB safe memory threshold
+
 export async function exportStudyFlowBackup(includePdfBytes = false): Promise<StudyFlowBackupData> {
   if (!localDB) throw new Error('Cơ sở dữ liệu cục bộ chưa được khởi tạo.');
 
@@ -96,6 +98,13 @@ export async function exportStudyFlowBackup(includePdfBytes = false): Promise<St
   const pdfFiles: Record<string, string> = {};
 
   if (includePdfBytes) {
+    const estimate = await getBackupEstimate();
+    if (estimate.pdfTotalBytes > MAX_SAFE_PDF_BUNDLE_BYTES) {
+      throw new Error(
+        `Không thể xuất toàn bộ PDF vì tổng dung lượng (${estimate.pdfTotalMB} MB) vượt quá giới hạn an toàn 50MB cho phương thức Base64 JSON. Vui lòng chọn "Xuất dữ liệu học" (chứa toàn bộ ghi chú, highlight và tiến độ) để đảm bảo trình duyệt không bị treo hoặc tràn bộ nhớ.`
+      );
+    }
+
     for (const doc of documents) {
       try {
         const exists = await pdfExistsInOPFS(doc.id);

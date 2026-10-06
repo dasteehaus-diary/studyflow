@@ -100,12 +100,13 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
       const now = new Date().toISOString();
       const title = file.name.replace(/\.pdf$/i, '');
 
-      // Generate local thumbnail and totalPages
+      // Generate local thumbnail and totalPages using lightweight Blob URL
       let thumbnail: string | undefined;
       let totalPages: number | undefined;
+      let blobUrl: string | null = null;
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        blobUrl = URL.createObjectURL(file);
+        const loadingTask = pdfjs.getDocument({ url: blobUrl });
         const pdf = await loadingTask.promise;
         totalPages = pdf.numPages;
         const firstPage = await pdf.getPage(1);
@@ -120,6 +121,10 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
         }
       } catch (err) {
         console.warn('Could not generate PDF thumbnail, falling back to gradient:', err);
+      } finally {
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+        }
       }
 
       const newDoc: LocalDocument = {

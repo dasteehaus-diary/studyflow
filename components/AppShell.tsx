@@ -28,7 +28,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={isActive ? 'navActive' : ''}
-                style={isActive ? { background: '#eee8dc', color: 'var(--ink)', fontWeight: 600 } : undefined}
               >
                 {icon} &nbsp; {label}
               </Link>

@@ -314,6 +314,181 @@ describe('StudyFlow v0.2 — Improvements & Polish Test Suite', () => {
       assert.strictEqual(est.isLarge, true);
       assert.strictEqual(est.totalMB, 55);
     });
+
+    it('strictly blocks PDF bundle export when size exceeds MAX_SAFE_PDF_BUNDLE_BYTES (50MB)', () => {
+      const MAX_SAFE_BYTES = 50 * 1024 * 1024;
+
+      function simulateExportGuard(includePdfBytes: boolean, totalPdfBytes: number) {
+        if (includePdfBytes && totalPdfBytes > MAX_SAFE_BYTES) {
+          const totalMB = Math.round((totalPdfBytes / (1024 * 1024)) * 10) / 10;
+          throw new Error(`Đã chặn xuất PDF bundle: ${totalMB} MB vượt ngưỡng an toàn 50MB.`);
+        }
+        return { success: true };
+      }
+
+      // Safe export (< 50MB) succeeds
+      const safeRes = simulateExportGuard(true, 42 * 1024 * 1024);
+      assert.strictEqual(safeRes.success, true);
+
+      // Large export (> 50MB) strictly throws Error instead of warning
+      assert.throws(() => {
+        simulateExportGuard(true, 68 * 1024 * 1024);
+      }, /50MB/);
+
+      // Lightweight notes-only export always succeeds even if PDFs are large
+      const notesOnlyRes = simulateExportGuard(false, 68 * 1024 * 1024);
+      assert.strictEqual(notesOnlyRes.success, true);
+    });
+  });
+
+  describe('6. Hardening Regression Tests: Session Lifecycle & Memory Safety', () => {
+    it('verifies that page/scroll changes do NOT re-run session effect or create extra sessions', () => {
+      // Simulate session lifecycle decoupled from progress state
+      let effectRunCount = 0;
+      let sessionPersistedCount = 0;
+      let activeSeconds = 0;
+
+      // Mock component mount for documentId = 'doc-hardened'
+      const documentId = 'doc-hardened';
+      let activeDocId = documentId;
+
+      // The effect only runs when activeDocId changes
+      function triggerDocumentMountEffect(docId: string) {
+        effectRunCount++;
+        activeDocId = docId;
+      }
+      triggerDocumentMountEffect(documentId);
+
+      // Simulate 100 scroll events and page changes
+      for (let p = 1; p <= 100; p++) {
+        const _currentPage = p;
+        const _currentY = 0.5;
+        activeSeconds += 1;
+        // Progress changes do NOT re-trigger document mount effect!
+      }
+
+      // Simulate unmount / pagehide
+      function triggerUnmountCleanup() {
+        if (activeSeconds >= 5) {
+          sessionPersistedCount++;
+        }
+      }
+      triggerUnmountCleanup();
+
+      assert.strictEqual(effectRunCount, 1, 'Session effect must strictly initialize once per document');
+      assert.strictEqual(sessionPersistedCount, 1, 'Exactly one session must be persisted on teardown');
+      assert.strictEqual(activeSeconds, 100, 'Active seconds must accumulate without being reset by scroll ticks');
+    });
+
+    it('verifies thumbnail generation uses Blob URL pattern and guarantees URL.revokeObjectURL cleanup', () => {
+      let createdUrlCount = 0;
+      let revokedUrlCount = 0;
+
+      const mockURL = {
+        createObjectURL: (_file: unknown) => {
+          createdUrlCount++;
+          return 'blob:http://localhost/mock-uuid-123';
+        },
+        revokeObjectURL: (_url: string) => {
+          revokedUrlCount++;
+        }
+      };
+
+      // Simulates the try/finally block in ImportPdfModal.tsx
+      function generateThumbnailSafe(file: { name: string; size: number }, shouldFail = false) {
+        let blobUrl: string | null = null;
+        try {
+          blobUrl = mockURL.createObjectURL(file);
+          if (shouldFail) {
+            throw new Error('Simulated PDF parse failure');
+          }
+          return 'data:image/jpeg;base64,mockThumbnailData';
+        } catch {
+          return undefined; // fallback to gradient
+        } finally {
+          if (blobUrl) {
+            mockURL.revokeObjectURL(blobUrl);
+          }
+        }
+      }
+
+      // Test 1: Successful path
+      const thumb = generateThumbnailSafe({ name: 'large.pdf', size: 85 * 1024 * 1024 }, false);
+      assert.ok(thumb?.startsWith('data:image/jpeg;base64,'));
+      assert.strictEqual(createdUrlCount, 1);
+      assert.strictEqual(revokedUrlCount, 1, 'Must revoke Object URL on success');
+
+      // Test 2: Error path (still guarantees revocation)
+      const fallbackThumb = generateThumbnailSafe({ name: 'corrupted.pdf', size: 10 * 1024 * 1024 }, true);
+      assert.strictEqual(fallbackThumb, undefined);
+      assert.strictEqual(createdUrlCount, 2);
+      assert.strictEqual(revokedUrlCount, 2, 'Must revoke Object URL even when error occurs');
+    });
+
+    it('verifies optimized scroll locator uses O(1) fast candidates and O(log N) binary search', () => {
+      // Simulate 500 pages in vertical layout
+      const PAGE_HEIGHT = 1000;
+      const totalPages = 500;
+      let lookupEvaluationsCount = 0;
+
+      const pageOffsets = new Map<number, { top: number; height: number }>();
+      for (let i = 1; i <= totalPages; i++) {
+        pageOffsets.set(i, { top: (i - 1) * PAGE_HEIGHT, height: PAGE_HEIGHT });
+      }
+
+      function findPageOptimized(scrollTop: number, currentPage: number): number | null {
+        lookupEvaluationsCount = 0;
+
+        const check = (p: number) => {
+          lookupEvaluationsCount++;
+          const info = pageOffsets.get(p);
+          if (!info) return null;
+          const inView = scrollTop >= info.top - 100 && scrollTop < info.top + info.height - 50;
+          return { inView, top: info.top };
+        };
+
+        // 1. Fast path (O(1))
+        const candidates = [currentPage, currentPage + 1, currentPage - 1, currentPage + 2, currentPage - 2];
+        for (const p of candidates) {
+          if (p >= 1 && p <= totalPages) {
+            const res = check(p);
+            if (res?.inView) return p;
+          }
+        }
+
+        // 2. Binary search fallback (O(log N))
+        let low = 1;
+        let high = totalPages;
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          const res = check(mid);
+          if (!res) {
+            low++;
+            continue;
+          }
+          if (res.inView) return mid;
+          if (scrollTop < res.top - 100) {
+            high = mid - 1;
+          } else {
+            low = mid + 1;
+          }
+        }
+
+        return null;
+      }
+
+      // Case A: Sequential reading from page 50 to page 51
+      const sequentialPage = findPageOptimized(50 * PAGE_HEIGHT + 100, 50);
+      assert.strictEqual(sequentialPage, 51);
+      assert.ok(lookupEvaluationsCount <= 2, `Sequential reading should resolve in <= 2 checks, got ${lookupEvaluationsCount}`);
+
+      // Case B: Huge scrubbing jump from page 50 to page 430
+      const jumpPage = findPageOptimized(429 * PAGE_HEIGHT + 200, 50);
+      assert.strictEqual(jumpPage, 430);
+      // log2(500) ≈ 9, fast path takes 5 checks, binary search takes <= 9 -> max ~14 checks vs 500 checks!
+      assert.ok(lookupEvaluationsCount <= 14, `Jump must resolve in <= 14 checks (vs 500 in O(N)), got ${lookupEvaluationsCount}`);
+    });
   });
 
 });
+

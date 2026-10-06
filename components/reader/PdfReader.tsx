@@ -95,6 +95,20 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const startLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
   const currentLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
 
+  // Stable refs for progress & current page to decouple session lifecycle from scroll updates
+  const progressRef = useRef<LocalProgress | null>(progress);
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  const currentPageRef = useRef<number>(currentPage);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  // Page elements map to eliminate O(N) DOM query loops on scroll
+  const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map());
+
   // Apply default settings from context (Requirement 5)
   useEffect(() => {
     if (settings.readerBg) {
@@ -163,7 +177,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     loadData();
   }, [loadData]);
 
-  // Flush pending progress helper
+  // Flush pending progress helper (stable callback depending only on documentId)
   const flushProgressNow = useCallback(() => {
     if (!localDB || !pendingProgressRef.current) return;
     const { page, y } = pendingProgressRef.current;
@@ -176,13 +190,14 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       Math.abs(page - lastPersistedLocatorRef.current.page) >= 1 ||
       Math.abs(y - lastPersistedLocatorRef.current.y) > 0.12;
 
+    const currentProg = progressRef.current;
     const updatedProg: LocalProgress = {
       documentId,
       currentPage: page,
       y: Number(y.toFixed(4)),
       visitedRanges: updatedRanges,
-      completed: progress?.completed ?? false,
-      lastMeaningfulActivityAt: isMeaningfulMovement ? now : (progress?.lastMeaningfulActivityAt || now),
+      completed: currentProg?.completed ?? false,
+      lastMeaningfulActivityAt: isMeaningfulMovement ? now : (currentProg?.lastMeaningfulActivityAt || now),
       updatedAt: now
     };
 
@@ -191,9 +206,40 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setProgress(updatedProg);
     localDB.progress.put(updatedProg).catch(console.error);
     enqueueSync('progress', documentId, 'upsert', updatedProg).catch(console.error);
-  }, [documentId, progress?.completed, progress?.lastMeaningfulActivityAt]);
+  }, [documentId]);
 
-  // Requirement 2: Dedicated reading session tracking (1 open = 1 session logic)
+  const flushProgressRef = useRef(flushProgressNow);
+  useEffect(() => {
+    flushProgressRef.current = flushProgressNow;
+  }, [flushProgressNow]);
+
+  // Stable session persistence callback
+  const persistSession = useCallback(() => {
+    if (sessionSavedRef.current || activeSecondsRef.current < 5 || !localDB) return;
+    sessionSavedRef.current = true;
+    const now = new Date().toISOString();
+    const sessionId = crypto.randomUUID();
+    const sessionRecord = {
+      id: sessionId,
+      documentId,
+      startedAt: sessionStartRef.current,
+      endedAt: now,
+      activeSeconds: activeSecondsRef.current,
+      startLocator: startLocatorRef.current,
+      endLocator: currentLocatorRef.current,
+      updatedAt: now
+    };
+    localDB.readingSessions.add(sessionRecord).catch(console.error);
+    enqueueSync('session', sessionId, 'upsert', sessionRecord).catch(console.error);
+  }, [documentId]);
+
+  const persistSessionRef = useRef(persistSession);
+  useEffect(() => {
+    persistSessionRef.current = persistSession;
+  }, [persistSession]);
+
+  // Requirement 1 & 2: Reading session tracking lifecycle
+  // Effect initializes strictly ONCE per documentId, completely isolated from progress/scroll updates
   useEffect(() => {
     sessionSavedRef.current = false;
     sessionStartRef.current = new Date().toISOString();
@@ -215,35 +261,16 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     window.addEventListener('keydown', handleUserActivity, { passive: true });
     window.addEventListener('scroll', handleUserActivity, { passive: true });
 
-    const persistSession = () => {
-      if (sessionSavedRef.current || activeSecondsRef.current < 5 || !localDB) return;
-      sessionSavedRef.current = true;
-      const now = new Date().toISOString();
-      const sessionId = crypto.randomUUID();
-      const sessionRecord = {
-        id: sessionId,
-        documentId,
-        startedAt: sessionStartRef.current,
-        endedAt: now,
-        activeSeconds: activeSecondsRef.current,
-        startLocator: startLocatorRef.current,
-        endLocator: currentLocatorRef.current,
-        updatedAt: now
-      };
-      localDB.readingSessions.add(sessionRecord).catch(console.error);
-      enqueueSync('session', sessionId, 'upsert', sessionRecord).catch(console.error);
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        flushProgressNow();
-        persistSession();
+        flushProgressRef.current();
+        persistSessionRef.current();
       }
     };
 
     const handlePageHide = () => {
-      flushProgressNow();
-      persistSession();
+      flushProgressRef.current();
+      persistSessionRef.current();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -257,10 +284,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
 
-      flushProgressNow();
-      persistSession();
+      flushProgressRef.current();
+      persistSessionRef.current();
     };
-  }, [documentId, flushProgressNow]);
+  }, [documentId]);
 
   // Handle PDF loaded document metadata
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -299,40 +326,95 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     }, 750);
   }, [flushProgressNow]);
 
-  // Scroll listener to update visible page and y offset smoothly
+  // Requirement 5: Optimized scroll listener with O(1) fast-path and O(log N) binary search
+  // Eliminates O(N) looping and document.getElementById DOM tree traversal on every scroll event
   const handleScroll = useCallback(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+    if (!stage || totalPages <= 0) return;
 
     lastInteractionTimeRef.current = Date.now();
     const scrollTop = stage.scrollTop;
+    const stageOffsetTop = stage.offsetTop;
 
-    // Detect which page container is currently in view
-    for (let p = 1; p <= totalPages; p++) {
-      const pageEl = document.getElementById(`page-container-${p}`);
-      if (!pageEl) continue;
-
-      const pageTop = pageEl.offsetTop - stage.offsetTop;
-      const pageHeight = pageEl.offsetHeight;
-
-      if (scrollTop >= pageTop - 100 && scrollTop < pageTop + pageHeight - 50) {
-        if (p !== currentPage) {
-          setCurrentPage(p);
+    const checkPage = (p: number) => {
+      let pageEl = pageElementsRef.current.get(p);
+      if (!pageEl) {
+        const el = document.getElementById(`page-container-${p}`);
+        if (el) {
+          pageElementsRef.current.set(p, el);
+          pageEl = el;
         }
-        const relY = Math.max(0, Math.min(1, (scrollTop - pageTop) / (pageHeight || 1)));
-        setCurrentY(relY);
-        currentLocatorRef.current = { page: p, y: relY };
+      }
+      if (!pageEl) return null;
 
-        scheduleProgressPersistence(p, relY);
-        break;
+      const pageTop = pageEl.offsetTop - stageOffsetTop;
+      const pageHeight = pageEl.offsetHeight || 1;
+      const inView = scrollTop >= pageTop - 100 && scrollTop < pageTop + pageHeight - 50;
+      const relY = Math.max(0, Math.min(1, (scrollTop - pageTop) / pageHeight));
+
+      return { inView, relY, pageTop, pageHeight, page: p };
+    };
+
+    let matched: { page: number; relY: number } | null = null;
+    const curr = currentPageRef.current;
+
+    // 1. Fast Path (O(1)): check current page and immediate neighbors
+    const fastCandidates = [curr, curr + 1, curr - 1, curr + 2, curr - 2];
+    for (const p of fastCandidates) {
+      if (p >= 1 && p <= totalPages) {
+        const res = checkPage(p);
+        if (res?.inView) {
+          matched = { page: res.page, relY: res.relY };
+          break;
+        }
       }
     }
-  }, [totalPages, currentPage, scheduleProgressPersistence]);
+
+    // 2. Binary search fallback for rapid scrubbing / scroll jumps (O(log N))
+    if (!matched) {
+      let low = 1;
+      let high = totalPages;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const res = checkPage(mid);
+        if (!res) {
+          low++;
+          continue;
+        }
+        if (res.inView) {
+          matched = { page: res.page, relY: res.relY };
+          break;
+        }
+        if (scrollTop < res.pageTop - 100) {
+          high = mid - 1;
+        } else {
+          low = mid + 1;
+        }
+      }
+    }
+
+    if (matched) {
+      const { page, relY } = matched;
+      if (page !== currentPageRef.current) {
+        setCurrentPage(page);
+      }
+      setCurrentY(relY);
+      currentLocatorRef.current = { page, y: relY };
+      scheduleProgressPersistence(page, relY);
+    }
+  }, [totalPages, scheduleProgressPersistence]);
 
   // Jump to exact page and vertical position (Note <-> Source)
   const jumpToPageAndY = (page: number, y: number, highlightId?: string) => {
     const stage = stageRef.current;
-    const pageEl = document.getElementById(`page-container-${page}`);
+    let pageEl = pageElementsRef.current.get(page);
+    if (!pageEl) {
+      const el = document.getElementById(`page-container-${page}`);
+      if (el) {
+        pageElementsRef.current.set(page, el);
+        pageEl = el;
+      }
+    }
     if (!stage || !pageEl) return;
 
     const pageTop = pageEl.offsetTop - stage.offsetTop;
@@ -821,7 +903,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             top: 14,
             right: 14,
             zIndex: 1000,
-            background: 'rgba(255,253,248,0.92)',
+            background: 'var(--panel)',
+            color: 'var(--ink)',
             boxShadow: 'var(--shadow)',
             padding: '6px 12px',
             fontSize: 12,
@@ -878,6 +961,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                     highlights={pageHighlights}
                     onTextSelected={handleTextSelected}
                     onHighlightClick={(hl, pos) => setActiveHighlightPopup({ highlight: hl, pos })}
+                    onRegisterElement={(p, el) => {
+                      if (el) pageElementsRef.current.set(p, el);
+                      else pageElementsRef.current.delete(p);
+                    }}
                   />
                 );
               })}
@@ -1155,27 +1242,27 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Tạo Quick Note</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>N</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>N</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Đặt câu hỏi (Question)</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>Q</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>Q</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Ghim suy nghĩ (Parking Note)</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>P</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>P</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Bật / Thoát Focus Mode</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>F</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>F</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Phóng to / Thu nhỏ</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>+ / -</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>+ / -</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Đóng popup / modal</span>
-                <kbd style={{ background: '#eee', padding: '2px 8px', borderRadius: 4 }}>Esc</kbd>
+                <kbd style={{ background: 'var(--kbd-bg)', color: 'var(--ink)', padding: '2px 8px', borderRadius: 4 }}>Esc</kbd>
               </div>
             </div>
           </div>

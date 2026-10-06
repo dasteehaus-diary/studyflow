@@ -68,7 +68,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <div
             style={{
               fontSize: 13,
-              background: 'rgba(235, 226, 212, 0.6)',
+              background: 'var(--card-subtle)',
               padding: '6px 12px',
               borderRadius: 8,
               borderLeft: '3px solid var(--terracotta)',

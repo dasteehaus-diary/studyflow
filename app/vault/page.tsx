@@ -102,7 +102,7 @@ export default function VaultPage() {
             {activeModalReward.rewardType === 'certificate' && (
               <div
                 style={{
-                  background: '#f9f6ef',
+                  background: 'var(--card-subtle)',
                   border: '2px dashed var(--olive-cream)',
                   borderRadius: 12,
                   padding: 16,
@@ -124,7 +124,7 @@ export default function VaultPage() {
 
             {/* Collectible display (Requirement 16 - No rarity label) */}
             {activeModalReward.rewardType === 'collectible' && (
-              <div style={{ background: '#f5f0e6', borderRadius: 12, padding: 14, margin: '12px 0', fontSize: 13 }}>
+              <div style={{ background: 'var(--card-subtle)', borderRadius: 12, padding: 14, margin: '12px 0', fontSize: 13 }}>
                 <p style={{ margin: 0, color: 'var(--muted)', fontStyle: 'italic' }}>
                   “{activePayload?.lore as string}”
                 </p>
