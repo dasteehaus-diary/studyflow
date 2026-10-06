@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { CassetteProgress } from './CassetteProgress';
 import type { LocalDocument, LocalProgress, LocalNote } from '@/lib/db/local';
-import { cassetteProgress } from '@/lib/progress/cassette';
+import { meaningfulCoveragePercent } from '@/lib/progress/cassette';
 import { formatRelativeTime } from '@/lib/utils/time';
 
 interface ContinueCardProps {
@@ -15,7 +15,7 @@ interface ContinueCardProps {
 export function ContinueCard({ document, progress, activeParkingNote }: ContinueCardProps) {
   const currentPage = progress?.currentPage ?? 1;
   const totalPages = document.totalPages ?? 0;
-  const pct = progress ? cassetteProgress(totalPages || currentPage, progress.visitedRanges) : 0;
+  const pct = progress ? meaningfulCoveragePercent(totalPages || currentPage, progress.visitedRanges) : 0;
   const lastActive = formatRelativeTime(progress?.lastMeaningfulActivityAt || document.updatedAt);
   const isCompleted = document.status === 'completed' || !!progress?.completed;
 
@@ -101,7 +101,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
           <div style={{ width: 'min(220px, 100%)' }}>
-            <CassetteProgress value={pct} />
+            <CassetteProgress value={pct} variant="mini" />
           </div>
           <span className="muted" style={{ fontSize: 12 }}>Trang {currentPage}</span>
         </div>

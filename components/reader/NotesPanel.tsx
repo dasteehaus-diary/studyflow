@@ -20,6 +20,7 @@ interface NotesPanelProps {
   initialComposerY?: number;
   initialComposerHighlightId?: string;
   onClearInitialComposer?: () => void;
+  onNoteMeaningfulAction?: (page: number) => void;
 }
 
 export function NotesPanel({
@@ -36,7 +37,8 @@ export function NotesPanel({
   initialComposerPage,
   initialComposerY,
   initialComposerHighlightId,
-  onClearInitialComposer
+  onClearInitialComposer,
+  onNoteMeaningfulAction
 }: NotesPanelProps) {
   const [tab, setTab] = useState<'all' | 'quick' | 'question' | 'parking'>('all');
   const [questionFilter, setQuestionFilter] = useState<'all' | 'open' | 'resolved'>('all');
@@ -129,6 +131,8 @@ export function NotesPanel({
       updatedAt: now
     });
 
+    onNoteMeaningfulAction?.(newNote.page);
+
     setNoteText('');
     setQuoteText('');
     setTargetHighlightId(undefined);
@@ -186,6 +190,8 @@ export function NotesPanel({
       lastMeaningfulActivityAt: now,
       updatedAt: now
     });
+
+    onNoteMeaningfulAction?.(note.page);
 
     setResolvingNoteId(null);
     setResolutionInput('');

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CassetteProgress } from './CassetteProgress';
 import { localDB, renameDocument, type LocalDocument, type LocalProgress } from '@/lib/db/local';
-import { cassetteProgress } from '@/lib/progress/cassette';
+import { meaningfulCoveragePercent } from '@/lib/progress/cassette';
 import { pdfExistsInOPFS, removePdfFromOPFS } from '@/lib/storage/opfs';
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { formatRelativeTime } from '@/lib/utils/time';
@@ -40,7 +40,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
 
   const currentPage = progress?.currentPage ?? 1;
   const totalPages = document.totalPages ?? 0;
-  const pct = progress ? cassetteProgress(totalPages || currentPage, progress.visitedRanges) : 0;
+  const pct = progress ? meaningfulCoveragePercent(totalPages || currentPage, progress.visitedRanges) : 0;
   const lastActive = formatRelativeTime(progress?.lastMeaningfulActivityAt || document.updatedAt);
 
   const handleRename = async (e: React.FormEvent) => {
@@ -85,7 +85,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
       documentId: document.id,
       currentPage: 1,
       y: 0,
-      visitedRanges: [[1, 1]],
+      visitedRanges: [],
       completed: false,
       lastMeaningfulActivityAt: now,
       updatedAt: now
@@ -95,7 +95,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
       documentId: document.id,
       currentPage: 1,
       y: 0,
-      visitedRanges: [[1, 1]],
+      visitedRanges: [],
       completed: false,
       lastMeaningfulActivityAt: now,
       updatedAt: now
@@ -305,7 +305,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           )}
 
           <div style={{ marginTop: 8 }}>
-            <CassetteProgress value={pct} />
+            <CassetteProgress value={pct} variant="mini" />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
               <span>Trang {currentPage}</span>
               <span>{lastActive}</span>

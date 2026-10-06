@@ -15,7 +15,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
-    const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://studyflow.app';
+    const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://studyflow-zeta-flame.vercel.app';
 
     if (!telegramBotToken) {
       return new Response(JSON.stringify({ error: 'TELEGRAM_BOT_TOKEN is not set.' }), {
@@ -25,14 +25,15 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const now = new Date();
+    const nowIso = now.toISOString();
 
-    // Find reminder preferences due for reminder
-    const now = new Date().toISOString();
+    // Query active reminder preferences that are due
     const { data: prefs, error: prefError } = await supabase
       .from('reminder_preferences')
       .select('*, documents(*)')
       .eq('enabled', true)
-      .lte('next_reminder_at', now);
+      .lte('next_reminder_at', nowIso);
 
     if (prefError) throw prefError;
 
@@ -40,23 +41,54 @@ serve(async (req) => {
 
     for (const pref of (prefs || [])) {
       const doc = pref.documents;
+      // Strictly skip completed or archived documents
       if (!doc || doc.status !== 'in_progress') continue;
 
-      // Get progress
+      // Check snooze condition: skip if snoozed_until is in the future
+      if (pref.snoozed_until && new Date(pref.snoozed_until) > now) {
+        continue;
+      }
+
+      // Anti-spam rule: do not send more than 1 reminder per document in < 20 hours
+      const twentyHoursAgo = new Date(now.getTime() - 20 * 60 * 60 * 1000).toISOString();
+      const { data: recentLogs } = await supabase
+        .from('reminder_logs')
+        .select('id')
+        .eq('document_id', doc.id)
+        .eq('status', 'sent')
+        .gte('sent_at', twentyHoursAgo)
+        .limit(1);
+
+      if (recentLogs && recentLogs.length > 0) {
+        await supabase.from('reminder_logs').insert({
+          user_id: pref.user_id,
+          document_id: doc.id,
+          status: 'skipped',
+          detail: 'Anti-spam guard: reminder already sent in last 20 hours'
+        });
+        continue;
+      }
+
+      // Retrieve document progress
       const { data: progress } = await supabase
         .from('document_progress')
         .select('*')
         .eq('document_id', doc.id)
         .maybeSingle();
 
-      const visitedRanges = progress?.visited_ranges || [];
+      const visitedRanges: Array<[number, number]> = progress?.visited_ranges || [];
       const totalPages = doc.total_pages || 1;
-      const visitedCount = visitedRanges.reduce((sum: number, [a, b]: [number, number]) => sum + Math.max(0, b - a + 1), 0);
-      const pct = Math.min(100, Math.round((visitedCount / totalPages) * 100));
+      const currentPage = progress?.current_locator?.page || 1;
+      const currentY = progress?.current_locator?.y || 0;
 
-      // Get active parking note if show_context is true
-      let parkingText = '';
+      // Meaningful coverage percentage calculation
+      const qualifiedCount = visitedRanges.reduce((sum, [a, b]) => sum + Math.max(0, b - a + 1), 0);
+      const pct = Math.min(100, Math.max(0, Math.round((qualifiedCount / totalPages) * 100)));
+
+      // Contextual thoughts: active parking note or unresolved question
+      let contextualSnippet = '';
       if (pref.show_context) {
+        // First priority: Active parking note
         const { data: parkingNote } = await supabase
           .from('notes')
           .select('note_text')
@@ -65,22 +97,40 @@ serve(async (req) => {
           .eq('is_active_parking', true)
           .maybeSingle();
 
-        if (parkingNote) {
-          parkingText = parkingNote.note_text;
+        if (parkingNote?.note_text) {
+          contextualSnippet = `\n\n📌 Lần trước bạn để lại:\n“_${parkingNote.note_text.trim()}_”`;
+        } else {
+          // Second priority: Open unresolved question
+          const { data: openQuestion } = await supabase
+            .from('notes')
+            .select('note_text')
+            .eq('document_id', doc.id)
+            .eq('type', 'question')
+            .neq('status', 'resolved')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (openQuestion?.note_text) {
+            contextualSnippet = `\n\n❓ Câu hỏi còn mở:\n“_${openQuestion.note_text.trim()}_”`;
+          }
         }
       }
 
-      // Format deep link
-      const deepLink = `${appBaseUrl}/reader/${doc.id}?page=${progress?.current_locator?.page || 1}&y=${progress?.current_locator?.y || 0}`;
+      // Deep link to exact document, page, and scroll offset
+      const deepLink = `${appBaseUrl}/reader/${doc.id}?page=${currentPage}&y=${currentY}`;
 
-      // Compose message
-      let message = `📼 *${doc.title}*\nCuộn băng đang dừng ở ${pct}%.`;
-      if (pref.show_context && parkingText) {
-        message += `\n\nLần trước:\n“_${parkingText}_”`;
-      }
-      message += `\n\n▶ [Resume Reading](${deepLink})`;
+      // Compose contextual Vietnamese message
+      const message = [
+        `📼 *${doc.title}*`,
+        `Cuộn băng đang ở *${pct}%*`,
+        `Bạn đang dừng ở *trang ${currentPage}*.`,
+        contextualSnippet,
+        '',
+        `▶ [Tiếp tục từ chỗ đang dở](${deepLink})`
+      ].filter(Boolean).join('\n');
 
-      // Get telegram chat ID from settings or user metadata
+      // Get target chat ID
       const chatId = pref.telegram_chat_id || Deno.env.get('TELEGRAM_DEFAULT_CHAT_ID');
       if (!chatId) {
         await supabase.from('reminder_logs').insert({
@@ -92,7 +142,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Send via Telegram Bot API
+      // Send message via Telegram Bot API with deep link and snooze callback
       const tgRes = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,8 +152,8 @@ serve(async (req) => {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶ Resume Reading', url: deepLink }],
-              [{ text: '💤 Snooze 1 Day', callback_data: `snooze:${doc.id}:1` }]
+              [{ text: '▶ Tiếp tục từ chỗ đang dở', url: deepLink }],
+              [{ text: '💤 Hoãn 1 ngày', callback_data: `snooze:${doc.id}:1` }]
             ]
           }
         })
@@ -119,7 +169,7 @@ serve(async (req) => {
         detail: tgData.ok ? 'Sent successfully' : JSON.stringify(tgData.description)
       });
 
-      // Update next_reminder_at
+      // Advance next_reminder_at to prevent infinite spam if user hasn't returned yet
       const intervalDays = pref.inactivity_days || 3;
       const nextDate = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000).toISOString();
       await supabase
@@ -134,7 +184,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

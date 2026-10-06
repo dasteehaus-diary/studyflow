@@ -12,6 +12,7 @@ import {
 } from '@/lib/data/backup';
 import { useSettings } from '@/lib/settings/settings-context';
 import { useAuth } from '@/lib/auth/auth-context';
+import { supabase } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
   const { settings, updateSettings, isLoaded } = useSettings();
@@ -33,10 +34,12 @@ export default function SettingsPage() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // System Diagnostics state (Requirement 12)
+  // System Diagnostics state (Requirement 12 & 22)
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
   const [telegramServerConfigured, setTelegramServerConfigured] = useState<boolean | null>(null);
   const [swActive, setSwActive] = useState<boolean>(false);
+  const [lastReminderSent, setLastReminderSent] = useState<string | null>(null);
+  const [nextReminderDue, setNextReminderDue] = useState<string | null>(null);
 
   // Sync initial settings to local state once loaded
   useEffect(() => {
@@ -67,7 +70,36 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       setSwActive(Boolean(navigator.serviceWorker.controller));
     }
-  }, []);
+
+    // Fetch reminder diagnostics from Supabase if authenticated
+    if (user && isSupabaseConfigured && supabase) {
+      (async () => {
+        try {
+          const { data: logData } = await supabase
+            .from('reminder_logs')
+            .select('sent_at')
+            .eq('user_id', user.id)
+            .eq('status', 'sent')
+            .order('sent_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (logData?.sent_at) setLastReminderSent(logData.sent_at);
+
+          const { data: prefData } = await supabase
+            .from('reminder_preferences')
+            .select('next_reminder_at')
+            .eq('user_id', user.id)
+            .eq('enabled', true)
+            .order('next_reminder_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (prefData?.next_reminder_at) setNextReminderDue(prefData.next_reminder_at);
+        } catch {
+          // Ignore network or permission error in diagnostics query
+        }
+      })();
+    }
+  }, [user, isSupabaseConfigured]);
 
   const refreshBackupEstimate = async () => {
     try {
@@ -83,15 +115,45 @@ export default function SettingsPage() {
     setPersistent(granted);
   };
 
-  // Telegram: Save Configuration Only
+  // Telegram: Save Configuration & Sync Cloud Data (Requirement 13)
   const handleSaveTelegramConfig = async () => {
     await updateSettings({
       telegramChatId: localChatId.trim(),
       inactivityDays: localInactivityDays,
       showContext: localShowContext
     });
-    setSaveStatusMsg('✓ Đã lưu cấu hình nhắc nhở thành công.');
-    setTimeout(() => setSaveStatusMsg(''), 4000);
+
+    if (user && isSupabaseConfigured && supabase) {
+      try {
+        const docs = localDB ? await localDB.documents.toArray() : [];
+        const now = new Date().toISOString();
+
+        for (const d of docs) {
+          const isEnabled = localInactivityDays > 0 && d.status === 'in_progress';
+          const prog = localDB ? await localDB.progress.get(d.id) : null;
+          const lastAct = prog?.lastMeaningfulActivityAt || d.updatedAt || now;
+          const nextDate = new Date(new Date(lastAct).getTime() + (localInactivityDays || 3) * 86400000).toISOString();
+
+          await supabase.from('reminder_preferences').upsert({
+            document_id: d.id,
+            user_id: user.id,
+            inactivity_days: localInactivityDays || 3,
+            enabled: isEnabled,
+            show_context: localShowContext,
+            telegram_chat_id: localChatId.trim() || null,
+            next_reminder_at: nextDate,
+            updated_at: now
+          }, { onConflict: 'document_id' });
+        }
+        setSaveStatusMsg('✓ Đã lưu cấu hình và đồng bộ lên Cloud thành công.');
+      } catch (cloudErr) {
+        console.error('Failed to sync reminder_preferences to cloud:', cloudErr);
+        setSaveStatusMsg('⚠️ Đã lưu cục bộ nhưng lỗi khi đồng bộ lên Cloud.');
+      }
+    } else {
+      setSaveStatusMsg('⚠️ Đã lưu cục bộ. Nhắc Telegram cần đăng nhập và kết nối Cloud để tự động chạy lịch gửi.');
+    }
+    setTimeout(() => setSaveStatusMsg(''), 5000);
   };
 
   // Telegram: Test Reminder with Honest Status
@@ -575,6 +637,31 @@ export default function SettingsPage() {
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Đồng bộ nhắc nhở (Reminder Sync)</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (settings.inactivityDays === 0) ? 'var(--muted)' : (user && isSupabaseConfigured) ? 'var(--olive)' : 'var(--terracotta)' }}>
+                {settings.inactivityDays === 0
+                  ? '○ Đang tắt (Off)'
+                  : (user && isSupabaseConfigured)
+                  ? '● Đã đồng bộ Cloud (Synced)'
+                  : '○ Chỉ lưu cục bộ (Local only)'}
+              </div>
+              <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                {nextReminderDue
+                  ? `Mốc tới: ${new Date(nextReminderDue).toLocaleDateString('vi-VN')} ${new Date(nextReminderDue).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                  : lastReminderSent
+                  ? `Đã gửi: ${new Date(lastReminderSent).toLocaleDateString('vi-VN')}`
+                  : 'Chưa có mốc nhắc đến hạn'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Lịch trình gửi (Hourly Cron)</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--olive)' : 'var(--muted)' }}>
+                {isSupabaseConfigured ? '● Sẵn sàng (0 * * * *)' : '○ Cần Cloud Supabase'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>PWA / Service Worker</div>
               <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: swActive ? 'var(--olive)' : 'var(--muted)' }}>
                 {swActive ? '● Đang hoạt động (Active)' : '○ Chưa kích hoạt (Inactive)'}
@@ -584,7 +671,7 @@ export default function SettingsPage() {
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Phiên bản ứng dụng</div>
               <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: 'var(--ink)' }}>
-                StudyFlow v0.2.2 ({process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || '1177668'})
+                StudyFlow v0.2.3 ({process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'c82e0b7'})
               </div>
             </div>
           </div>

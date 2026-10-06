@@ -8,7 +8,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 
 import { localDB, type LocalDocument, type LocalProgress, type LocalHighlight, type LocalNote, type HighlightColor } from '@/lib/db/local';
 import { readPdfFromOPFS, pdfExistsInOPFS } from '@/lib/storage/opfs';
-import { mergePagesIntoRanges, cassetteProgress } from '@/lib/progress/cassette';
+import { mergePagesIntoRanges, meaningfulCoveragePercent } from '@/lib/progress/cassette';
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
@@ -78,8 +78,11 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [initialComposerY, setInitialComposerY] = useState<number | undefined>(undefined);
   const [initialComposerHighlightId, setInitialComposerHighlightId] = useState<string | undefined>(undefined);
 
-  // Visited pages set for cassette coverage
-  const visitedPagesRef = useRef<Set<number>>(new Set());
+  // Qualified pages set for cassette coverage (Meaningful Coverage: dwell >= 8s or interaction)
+  const qualifiedPagesRef = useRef<Set<number>>(new Set());
+  const pageDwellAccumulatorRef = useRef<Map<number, number>>(new Map());
+  const lastInteractionTimeRef = useRef<number>(Date.now());
+  const previousTrackedPageRef = useRef<number>(initialPage || 1);
 
   // Stage scrolling ref
   const stageRef = useRef<HTMLDivElement>(null);
@@ -93,7 +96,6 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   // Reading session tracking refs (Requirement 2 - prevents duplicate writes on scroll)
   const sessionStartRef = useRef<string>(new Date().toISOString());
   const activeSecondsRef = useRef<number>(0);
-  const lastInteractionTimeRef = useRef<number>(Date.now());
   const sessionSavedRef = useRef<boolean>(false);
   const startLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
   const currentLocatorRef = useRef<{ page: number; y: number }>({ page: initialPage || 1, y: initialY || 0 });
@@ -228,10 +230,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         setCurrentY(progressData.y);
         currentLocatorRef.current.y = progressData.y;
       }
-      // Populate visited pages from existing visitedRanges
+      // Populate qualified pages from existing visitedRanges
       progressData.visitedRanges.forEach(([start, end]) => {
         for (let p = start; p <= end; p++) {
-          visitedPagesRef.current.add(p);
+          qualifiedPagesRef.current.add(p);
         }
       });
     }
@@ -266,9 +268,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const flushProgressNow = useCallback(() => {
     if (!localDB || !pendingProgressRef.current) return;
     const { page, y } = pendingProgressRef.current;
-    visitedPagesRef.current.add(page);
-    const pagesArray = Array.from(visitedPagesRef.current);
-    const updatedRanges = mergePagesIntoRanges(pagesArray);
+
+    // STRICT LOCATOR VS PROGRESS SEPARATION:
+    // Only qualified pages are included in visitedRanges. Do NOT automatically qualify page on scroll!
+    const updatedRanges = mergePagesIntoRanges(Array.from(qualifiedPagesRef.current));
     const now = new Date().toISOString();
 
     const isMeaningfulMovement =
@@ -297,6 +300,86 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   useEffect(() => {
     flushProgressRef.current = flushProgressNow;
   }, [flushProgressNow]);
+
+  // Meaningful Page Qualification (Active Dwell >= 8s OR Meaningful Action: note/highlight/question)
+  const qualifyPage = useCallback((pageToQualify: number) => {
+    if (pageToQualify < 1 || !localDB) return;
+    if (qualifiedPagesRef.current.has(pageToQualify)) return; // already qualified
+
+    qualifiedPagesRef.current.add(pageToQualify);
+    const updatedRanges = mergePagesIntoRanges(Array.from(qualifiedPagesRef.current));
+    const now = new Date().toISOString();
+
+    setProgress(prev => {
+      const currentProg = prev || progressRef.current;
+      const updatedProg: LocalProgress = {
+        documentId,
+        currentPage: currentLocatorRef.current.page || pageToQualify,
+        y: Number((currentLocatorRef.current.y ?? 0).toFixed(4)),
+        visitedRanges: updatedRanges,
+        completed: currentProg?.completed ?? false,
+        lastMeaningfulActivityAt: now,
+        updatedAt: now
+      };
+      progressRef.current = updatedProg;
+      if (localDB) {
+        localDB.progress.put(updatedProg).catch(console.error);
+      }
+      enqueueSync('progress', documentId, 'upsert', updatedProg).catch(console.error);
+      return updatedProg;
+    });
+  }, [documentId]);
+
+  // Track active user interactions to prevent counting idle time (>120s)
+  useEffect(() => {
+    const registerInteraction = () => {
+      lastInteractionTimeRef.current = Date.now();
+    };
+    window.addEventListener('mousemove', registerInteraction, { passive: true });
+    window.addEventListener('mousedown', registerInteraction, { passive: true });
+    window.addEventListener('keydown', registerInteraction, { passive: true });
+    window.addEventListener('scroll', registerInteraction, { passive: true });
+    window.addEventListener('touchstart', registerInteraction, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', registerInteraction);
+      window.removeEventListener('mousedown', registerInteraction);
+      window.removeEventListener('keydown', registerInteraction);
+      window.removeEventListener('scroll', registerInteraction);
+      window.removeEventListener('touchstart', registerInteraction);
+    };
+  }, []);
+
+  // Active page dwell timer (1s interval, qualifies page when dwell reaches >= 8s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (typeof document !== 'undefined' && typeof document.hasFocus === 'function' && !document.hasFocus()) return;
+      if (Date.now() - lastInteractionTimeRef.current > 120000) return; // idle > 120s
+
+      const activeP = currentLocatorRef.current.page;
+      if (activeP >= 1) {
+        const currentSecs = (pageDwellAccumulatorRef.current.get(activeP) || 0) + 1;
+        pageDwellAccumulatorRef.current.set(activeP, currentSecs);
+        if (currentSecs >= 8 && !qualifiedPagesRef.current.has(activeP)) {
+          qualifyPage(activeP);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [qualifyPage]);
+
+  // When changing visible page, if previous page accumulated >= 8s, qualify it
+  useEffect(() => {
+    const prevP = previousTrackedPageRef.current;
+    if (prevP !== currentPage) {
+      const prevDwell = pageDwellAccumulatorRef.current.get(prevP) || 0;
+      if (prevDwell >= 8 && !qualifiedPagesRef.current.has(prevP)) {
+        qualifyPage(prevP);
+      }
+      previousTrackedPageRef.current = currentPage;
+    }
+  }, [currentPage, qualifyPage]);
 
   // Stable session persistence callback
   const persistSession = useCallback(() => {
@@ -567,6 +650,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       updatedAt: now
     });
 
+    qualifyPage(selectedPageNum);
+
     setSelectionToolbarPos(null);
     setSelectedText('');
     return id;
@@ -662,6 +747,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       updatedAt: now
     });
 
+    qualifyPage(currentPage);
+
     setQuickParkText('');
     setQuickParkOpen(false);
     setQuickParkNotification('📌 Đã lưu Parking Note cho lần đọc tới.');
@@ -736,10 +823,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     return notes.find(n => n.type === 'question' && n.status !== 'resolved') ?? null;
   }, [notes]);
 
-  // Cassette coverage percentage
+  // Cassette coverage percentage (meaningful coverage)
   const coveragePct = useMemo(() => {
     if (!progress) return 0;
-    return cassetteProgress(totalPages, progress.visitedRanges);
+    return meaningfulCoveragePercent(totalPages, progress.visitedRanges);
   }, [progress, totalPages]);
 
   // Background style based on surrounding theme
@@ -1131,6 +1218,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               setInitialComposerQuote(null);
               setInitialComposerHighlightId(undefined);
             }}
+            onNoteMeaningfulAction={(p) => qualifyPage(p)}
           />
         )}
       </div>
@@ -1217,7 +1305,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
       {/* Bottom bar with Cassette Progress, Quick Parking, and Finish Tape CTA */}
       {!focusMode && (
-        <footer className="readerBottom" style={{ justifyContent: 'space-between', gap: 10 }}>
+        <footer className="readerBottom" style={{ justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
           {/* Quick Park button (Requirement 7) */}
           <button
             className="secondary"
@@ -1226,7 +1314,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               padding: '6px 12px',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
               whiteSpace: 'nowrap'
             }}
             onClick={() => setQuickParkOpen(prev => !prev)}
@@ -1235,25 +1323,29 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             📌 Park
           </button>
 
-          {/* Cassette Progress Center */}
-          <div style={{ flex: 1, maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <CassetteProgress value={coveragePct} />
-            </div>
+          {/* Cassette Progress Center (Hero Analog Widget) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CassetteProgress value={coveragePct} variant="reader" />
+          </div>
 
-            {/* Finish Tape Button */}
-            {(currentPage >= totalPages - 1 || coveragePct >= 85 || doc?.status === 'completed') && (
+          {/* Right: Location & Finish Tape Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+              Trang {currentPage} / {totalPages || '—'}
+            </span>
+
+            {(currentPage >= (totalPages || 1) - 1 || coveragePct >= 80 || doc?.status === 'completed') && (
               <button
                 className="primary"
                 style={{
-                  padding: '6px 14px',
+                  padding: '5px 12px',
                   fontSize: 12,
                   whiteSpace: 'nowrap',
                   background: doc?.status === 'completed' ? 'var(--olive)' : 'var(--terracotta)'
                 }}
                 onClick={() => setFinishTapeOpen(true)}
               >
-                {doc?.status === 'completed' ? '✨ B-Side Mystery' : '📼 Finish Tape'}
+                {doc?.status === 'completed' ? '✨ B-Side' : '📼 Finish Tape'}
               </button>
             )}
           </div>

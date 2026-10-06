@@ -113,6 +113,27 @@ async function syncSingleItem(item: SyncQueueItem, userId: string) {
       updated_at: data.updatedAt
     }, { onConflict: 'document_id' });
     if (error) throw error;
+
+    // Reset next_reminder_at from last_meaningful_activity_at if reminder preference exists
+    try {
+      const { data: pref } = await supabase
+        .from('reminder_preferences')
+        .select('inactivity_days, enabled')
+        .eq('document_id', data.documentId)
+        .maybeSingle();
+
+      if (pref && pref.enabled) {
+        const days = pref.inactivity_days || 3;
+        const actTime = data.lastMeaningfulActivityAt ? new Date(String(data.lastMeaningfulActivityAt)).getTime() : Date.now();
+        const nextDate = new Date(actTime + days * 86400000).toISOString();
+        await supabase
+          .from('reminder_preferences')
+          .update({ next_reminder_at: nextDate, updated_at: new Date().toISOString() })
+          .eq('document_id', data.documentId);
+      }
+    } catch (prefErr) {
+      console.warn('Could not update reminder_preferences next_reminder_at:', prefErr);
+    }
   } else if (entity === 'highlight') {
     const { error } = await supabase.from('highlights').upsert({
       id: data.id,
