@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core-logic.test.ts tests/sync-conflict.test.ts tests/locator-highlight.test.ts tests/backup.test.ts tests/v02-improvements.test.ts tests/v023-cassette-progress-reminder.test.ts tests/notes-lifecycle-e2e.test.ts"
+    "test": "node --test tests/core-logic.test.ts tests/sync-conflict.test.ts tests/locator-highlight.test.ts tests/backup.test.ts tests/v02-improvements.test.ts tests/v023-cassette-progress-reminder.test.ts tests/notes-lifecycle-e2e.test.ts tests/highlight-popover-qa.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

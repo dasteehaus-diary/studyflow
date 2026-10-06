@@ -2,7 +2,7 @@
 
 import { useRef, MouseEvent } from 'react';
 import { Page } from 'react-pdf';
-import type { LocalHighlight, HighlightColor } from '@/lib/db/local';
+import type { LocalHighlight, HighlightColor, LocalNote } from '@/lib/db/local';
 import { normalizeClientRect } from '@/lib/reader/coordinates';
 
 interface PdfPageItemProps {
@@ -11,6 +11,7 @@ interface PdfPageItemProps {
   isMounted: boolean;
   estimatedHeight: number;
   highlights: LocalHighlight[];
+  notesByHighlightId?: Record<string, LocalNote>;
   onTextSelected: (pageNumber: number, text: string, rects: LocalHighlight['rects'], clientPos: { x: number; y: number }) => void;
   onHighlightClick: (highlight: LocalHighlight, clientPos: { x: number; y: number }) => void;
   onPageVisible?: (pageNumber: number) => void;
@@ -31,6 +32,7 @@ export function PdfPageItem({
   isMounted,
   estimatedHeight,
   highlights,
+  notesByHighlightId,
   onTextSelected,
   onHighlightClick,
   onRegisterElement,
@@ -152,28 +154,69 @@ export function PdfPageItem({
       >
         {highlights.map((hl) => {
           const bg = COLOR_MAP[hl.color] || COLOR_MAP.apricot;
-          return hl.rects.map((r, i) => (
-            <div
-              key={`${hl.id}-${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onHighlightClick(hl, { x: e.clientX, y: e.clientY });
-              }}
-              style={{
-                position: 'absolute',
-                left: `${r.x * 100}%`,
-                top: `${r.y * 100}%`,
-                width: `${r.width * 100}%`,
-                height: `${r.height * 100}%`,
-                background: bg,
-                borderRadius: 2,
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                transition: 'background 0.15s ease'
-              }}
-              title={`Highlight: "${hl.quoteText}"`}
-            />
-          ));
+          const note = notesByHighlightId ? notesByHighlightId[hl.id] : undefined;
+          const hasQuickNote = note && note.type !== 'question';
+          const hasQuestion = note && note.type === 'question';
+          const lastRect = hl.rects[hl.rects.length - 1];
+
+          return (
+            <div key={hl.id}>
+              {hl.rects.map((r, i) => (
+                <div
+                  key={`${hl.id}-${i}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onHighlightClick(hl, { x: e.clientX, y: e.clientY });
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: `${r.x * 100}%`,
+                    top: `${r.y * 100}%`,
+                    width: `${r.width * 100}%`,
+                    height: `${r.height * 100}%`,
+                    background: bg,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    pointerEvents: 'auto',
+                    transition: 'background 0.15s ease'
+                  }}
+                  title={`Highlight: "${hl.quoteText}"${note ? `\nNote: ${note.noteText}` : ''}`}
+                />
+              ))}
+
+              {/* Visual cue: Highlight có Quick Note -> ✎, có Question -> ? (Requirement: Visual cue) */}
+              {(hasQuickNote || hasQuestion) && lastRect && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onHighlightClick(hl, { x: e.clientX, y: e.clientY });
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: `calc(${lastRect.x * 100}% + ${lastRect.width * 100}% - 2px)`,
+                    top: `calc(${lastRect.y * 100}% - 7px)`,
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    padding: '1.5px 3px',
+                    borderRadius: 3,
+                    background: hasQuestion ? 'var(--rose)' : 'var(--panel)',
+                    color: hasQuestion ? '#ffffff' : 'var(--terracotta)',
+                    border: '1px solid var(--line)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                    zIndex: 12,
+                    userSelect: 'none',
+                    transform: 'scale(0.85)'
+                  }}
+                  title={hasQuestion ? 'Highlight này có câu hỏi' : 'Highlight này có ghi chú'}
+                >
+                  {hasQuestion ? '?' : '✎'}
+                </div>
+              )}
+            </div>
+          );
         })}
       </div>
     </div>

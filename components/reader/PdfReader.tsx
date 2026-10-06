@@ -15,6 +15,7 @@ import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
 import { PdfPageItem } from './PdfPageItem';
 import { HighlightToolbar } from './HighlightToolbar';
+import { HighlightNotePopover } from './HighlightNotePopover';
 import { NotesPanel, type ComposerTrigger } from './NotesPanel';
 import { ResumeToast } from './ResumeToast';
 import { FinishTapeModal } from './FinishTapeModal';
@@ -751,7 +752,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setActiveHighlightPopup(null);
   };
 
-  // Change highlight color
+  // Change highlight color (keeps popover open with updated color)
   const handleChangeHighlightColor = async (highlightId: string, color: HighlightColor) => {
     if (!localDB) return;
     const now = new Date().toISOString();
@@ -761,7 +762,122 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     if (hl) {
       await enqueueSync('highlight', highlightId, 'upsert', { ...hl, color, updatedAt: now });
     }
-    setActiveHighlightPopup(null);
+    setActiveHighlightPopup(prev =>
+      prev && prev.highlight.id === highlightId
+        ? { ...prev, highlight: { ...prev.highlight, color, updatedAt: now } }
+        : prev
+    );
+  };
+
+  // Highlight Note Popover Actions (Notion-Style Popover)
+  const handleSaveNoteFromPopover = async (highlight: LocalHighlight, noteText: string, type: 'quick' | 'question') => {
+    if (!localDB || !noteText.trim()) return;
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+
+    const newNote: LocalNote = {
+      id,
+      documentId,
+      highlightId: highlight.id,
+      type,
+      noteText: noteText.trim(),
+      quoteText: highlight.quoteText,
+      page: highlight.page,
+      y: highlight.locator.y,
+      locator: { page: highlight.page, y: highlight.locator.y },
+      status: type === 'question' ? 'open' : undefined,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await localDB.notes.add(newNote);
+    await enqueueSync('note', id, 'upsert', newNote);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    qualifyPage(highlight.page);
+    refreshNotes();
+  };
+
+  const handleUpdateNoteFromPopover = async (noteId: string, noteText: string) => {
+    if (!localDB || !noteText.trim()) return;
+    const now = new Date().toISOString();
+    const existing = notes.find(n => n.id === noteId);
+    if (!existing) return;
+
+    const updated: LocalNote = {
+      ...existing,
+      noteText: noteText.trim(),
+      updatedAt: now
+    };
+
+    await localDB.notes.update(noteId, { noteText: updated.noteText, updatedAt: now });
+    await enqueueSync('note', noteId, 'upsert', updated);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    refreshNotes();
+  };
+
+  const handleDeleteNoteFromPopover = async (noteId: string) => {
+    if (!localDB) return;
+    await localDB.notes.delete(noteId);
+    await enqueueSync('note', noteId, 'delete', { id: noteId });
+    refreshNotes();
+  };
+
+  const handleToggleQuestionStatusFromPopover = async (note: LocalNote) => {
+    if (!localDB) return;
+    const now = new Date().toISOString();
+    const isNowResolved = note.status !== 'resolved';
+    const nextStatus = isNowResolved ? 'resolved' : 'reopened';
+
+    const updated = {
+      ...note,
+      status: nextStatus as 'resolved' | 'reopened',
+      resolutionText: isNowResolved ? 'Đã giải quyết' : undefined,
+      updatedAt: now
+    };
+
+    await localDB.notes.update(note.id, updated);
+    await enqueueSync('note', note.id, 'upsert', updated);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    qualifyPage(note.page);
+    refreshNotes();
+  };
+
+  const handleConvertNoteTypeFromPopover = async (note: LocalNote, newType: 'quick' | 'question') => {
+    if (!localDB) return;
+    const now = new Date().toISOString();
+
+    const updated = {
+      ...note,
+      type: newType,
+      status: newType === 'question' ? ('open' as const) : undefined,
+      updatedAt: now
+    };
+
+    await localDB.notes.update(note.id, updated);
+    await enqueueSync('note', note.id, 'upsert', updated);
+
+    await localDB.progress.update(documentId, {
+      lastMeaningfulActivityAt: now,
+      updatedAt: now
+    });
+
+    qualifyPage(note.page);
+    refreshNotes();
   };
 
   // Requirement 7 & 10: Quick Parking Note submit handler (Deactivates older parking notes)
@@ -898,6 +1014,17 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
   const openQuestion = useMemo(() => {
     return notes.find(n => n.type === 'question' && n.status !== 'resolved') ?? null;
+  }, [notes]);
+
+  // Notes mapped by highlightId for O(1) visual cue detection and popover linking
+  const notesByHighlightId = useMemo(() => {
+    const map: Record<string, LocalNote> = {};
+    notes.forEach(n => {
+      if (n.highlightId) {
+        map[n.highlightId] = n;
+      }
+    });
+    return map;
   }, [notes]);
 
   // Cassette coverage percentage (meaningful coverage)
@@ -1261,6 +1388,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                     isMounted={isMounted}
                     estimatedHeight={1050 * (scale / 1.15)}
                     highlights={pageHighlights}
+                    notesByHighlightId={notesByHighlightId}
                     onTextSelected={handleTextSelected}
                     onHighlightClick={(hl, pos) => setActiveHighlightPopup({ highlight: hl, pos })}
                     onRegisterElement={(p, el) => {
@@ -1446,55 +1574,22 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         }}
       />
 
-      {/* Highlight click popup */}
+      {/* Highlight Note Popover (Notion-Style Anchored Popover / Mobile Bottom Sheet) */}
       {activeHighlightPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            left: activeHighlightPopup.pos.x,
-            top: activeHighlightPopup.pos.y - 48,
-            transform: 'translateX(-50%)',
-            zIndex: 1001,
-            background: 'var(--panel)',
-            border: '1px solid var(--line)',
-            borderRadius: 12,
-            boxShadow: 'var(--shadow)',
-            padding: '4px 8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
-          {(['apricot', 'rose', 'olive', 'blue'] as HighlightColor[]).map((c) => (
-            <button
-              key={c}
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                background: c === 'apricot' ? '#f6a56e' : c === 'rose' ? '#ea9090' : c === 'olive' ? '#dace8d' : '#97a8bc',
-                border: '1px solid #fff',
-                cursor: 'pointer'
-              }}
-              onClick={() => handleChangeHighlightColor(activeHighlightPopup.highlight.id, c)}
-              title={`Đổi màu sang ${c}`}
-            />
-          ))}
-          <button
-            className="secondary danger"
-            style={{ fontSize: 11, padding: '2px 6px', border: 0 }}
-            onClick={() => handleDeleteHighlight(activeHighlightPopup.highlight.id)}
-          >
-            🗑️ Xóa
-          </button>
-          <button
-            className="secondary"
-            style={{ fontSize: 11, padding: '2px 6px', border: 0 }}
-            onClick={() => setActiveHighlightPopup(null)}
-          >
-            ✕
-          </button>
-        </div>
+        <HighlightNotePopover
+          documentId={documentId}
+          highlight={activeHighlightPopup.highlight}
+          linkedNote={notesByHighlightId[activeHighlightPopup.highlight.id] || null}
+          position={activeHighlightPopup.pos}
+          onClose={() => setActiveHighlightPopup(null)}
+          onColorChange={(c) => handleChangeHighlightColor(activeHighlightPopup.highlight.id, c)}
+          onSaveNote={(noteText, type) => handleSaveNoteFromPopover(activeHighlightPopup.highlight, noteText, type)}
+          onUpdateNote={handleUpdateNoteFromPopover}
+          onDeleteNote={handleDeleteNoteFromPopover}
+          onDeleteHighlight={handleDeleteHighlight}
+          onToggleQuestionStatus={handleToggleQuestionStatusFromPopover}
+          onConvertNoteType={handleConvertNoteTypeFromPopover}
+        />
       )}
 
       {/* Dismissible Resume Toast (Requirement 15) */}
