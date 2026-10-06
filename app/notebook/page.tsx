@@ -243,12 +243,19 @@ export default function NotebookPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Link
-                    href={`/reader/${item.documentId}`}
+                    href={targetUrl}
                     style={{ fontSize: 13, fontWeight: 700, color: 'var(--deep)' }}
+                    title={`Mở tài liệu tại trang ${item.page}`}
                   >
                     {docTitle}
                   </Link>
-                  <span className="muted" style={{ fontSize: 12 }}>· Trang {item.page}</span>
+                  <Link
+                    href={targetUrl}
+                    className="muted"
+                    style={{ fontSize: 12 }}
+                  >
+                    · Trang {item.page}
+                  </Link>
                   <span className="muted" style={{ fontSize: 11 }}>({formatRelativeTime(item.updatedAt)})</span>
                 </div>
 
@@ -289,18 +296,22 @@ export default function NotebookPage() {
 
               {/* Highlight quote text */}
               {item.quoteText && (
-                <div
+                <Link
+                  href={targetUrl}
                   style={{
+                    display: 'block',
                     fontSize: 13,
                     fontStyle: 'italic',
                     borderLeft: '3px solid var(--apricot)',
                     paddingLeft: 10,
                     color: 'var(--muted)',
-                    lineHeight: 1.45
+                    lineHeight: 1.45,
+                    textDecoration: 'none'
                   }}
+                  title="Nhảy tới vị trí trích dẫn này trong sách"
                 >
                   “{item.quoteText}”
-                </div>
+                </Link>
               )}
 
               {/* Note text / Edit box */}

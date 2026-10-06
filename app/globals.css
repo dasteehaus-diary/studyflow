@@ -219,3 +219,20 @@ h2 { font-size: 19px; margin: 34px 0 15px; }
   border-color: var(--deep);
 }
 
+/* Responsive visibility utilities (Requirement 12) */
+.mobileOnly {
+  display: none !important;
+}
+
+.desktopOnly {
+  display: flex !important;
+}
+
+@media (max-width: 820px) {
+  .mobileOnly {
+    display: flex !important;
+  }
+  .desktopOnly {
+    display: none !important;
+  }
+}

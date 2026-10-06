@@ -5,6 +5,15 @@ import type { LocalNote, LocalHighlight } from '@/lib/db/local';
 import { localDB } from '@/lib/db/local';
 import { enqueueSync } from '@/lib/sync/sync-service';
 
+export interface ComposerTrigger {
+  type: 'quick' | 'question' | 'parking';
+  quote?: string | null;
+  page?: number;
+  y?: number;
+  highlightId?: string;
+  token: number;
+}
+
 interface NotesPanelProps {
   documentId: string;
   currentPage: number;
@@ -14,6 +23,8 @@ interface NotesPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onJumpToSource: (page: number, y: number, highlightId?: string) => void;
+  onNotesChanged?: () => void;
+  composerTrigger?: ComposerTrigger | null;
   initialComposerQuote?: string | null;
   initialComposerType?: 'quick' | 'question' | 'parking';
   initialComposerPage?: number;
@@ -32,6 +43,8 @@ export function NotesPanel({
   isOpen,
   onClose,
   onJumpToSource,
+  onNotesChanged,
+  composerTrigger,
   initialComposerQuote,
   initialComposerType = 'quick',
   initialComposerPage,
@@ -52,6 +65,9 @@ export function NotesPanel({
   const [targetY, setTargetY] = useState(currentY);
   const [targetHighlightId, setTargetHighlightId] = useState<string | undefined>(undefined);
 
+  // Error handling state (Requirement 13)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Edit state (Requirement 14)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -60,7 +76,20 @@ export function NotesPanel({
   const [resolvingNoteId, setResolvingNoteId] = useState<string | null>(null);
   const [resolutionInput, setResolutionInput] = useState('');
 
-  // Handle external quote/type triggered from reader selection (Requirement 4)
+  // Handle composerTrigger (Requirement 4 & 5 & 6: N, Q, Selection -> Note/Question)
+  useEffect(() => {
+    if (!composerTrigger) return;
+    setComposerType(composerTrigger.type);
+    setQuoteText(composerTrigger.quote || '');
+    setTargetPage(composerTrigger.page !== undefined ? composerTrigger.page : currentPage);
+    setTargetY(composerTrigger.y !== undefined ? composerTrigger.y : currentY);
+    setTargetHighlightId(composerTrigger.highlightId);
+    setNoteText('');
+    setComposerOpen(true);
+    setErrorMessage(null);
+  }, [composerTrigger, currentPage, currentY]);
+
+  // Handle external quote/type triggered from reader selection (legacy/direct props)
   useEffect(() => {
     if (initialComposerQuote !== undefined && initialComposerQuote !== null) {
       setComposerType(initialComposerType);
@@ -69,6 +98,7 @@ export function NotesPanel({
       setTargetY(initialComposerY !== undefined ? initialComposerY : currentY);
       setTargetHighlightId(initialComposerHighlightId);
       setComposerOpen(true);
+      setErrorMessage(null);
     }
   }, [initialComposerQuote, initialComposerType, initialComposerPage, initialComposerY, initialComposerHighlightId, currentPage, currentY]);
 
@@ -87,120 +117,176 @@ export function NotesPanel({
 
   const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!localDB || !noteText.trim()) return;
-
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-
-    // If type is parking, archive any existing active parking note for this document
-    if (composerType === 'parking') {
-      const existingParkings = await localDB.notes
-        .where('documentId')
-        .equals(documentId)
-        .filter(n => n.type === 'parking' && !!n.isActiveParking)
-        .toArray();
-
-      for (const p of existingParkings) {
-        await localDB.notes.update(p.id, { isActiveParking: false, updatedAt: now });
-        await enqueueSync('note', p.id, 'upsert', { ...p, isActiveParking: false, updatedAt: now });
-      }
+    if (!noteText.trim()) {
+      setErrorMessage('Vui lòng nhập nội dung ghi chú.');
+      return;
+    }
+    if (!localDB) {
+      setErrorMessage('Không thể kết nối cơ sở dữ liệu trên thiết bị.');
+      return;
     }
 
-    const newNote: LocalNote = {
-      id,
-      documentId,
-      highlightId: targetHighlightId,
-      type: composerType,
-      noteText: noteText.trim(),
-      quoteText: quoteText.trim() || undefined,
-      page: targetPage,
-      y: targetY,
-      locator: { page: targetPage, y: targetY },
-      status: composerType === 'question' ? 'open' : undefined,
-      isActiveParking: composerType === 'parking',
-      createdAt: now,
-      updatedAt: now
-    };
+    try {
+      setErrorMessage(null);
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
 
-    await localDB.notes.add(newNote);
-    await enqueueSync('note', id, 'upsert', newNote);
+      // If type is parking, archive any existing active parking note for this document (Requirement 10)
+      if (composerType === 'parking') {
+        const existingParkings = await localDB.notes
+          .where('documentId')
+          .equals(documentId)
+          .filter(n => n.type === 'parking' && !!n.isActiveParking)
+          .toArray();
 
-    // Update last meaningful activity
-    await localDB.progress.update(documentId, {
-      lastMeaningfulActivityAt: now,
-      updatedAt: now
-    });
+        for (const p of existingParkings) {
+          await localDB.notes.update(p.id, { isActiveParking: false, updatedAt: now });
+          await enqueueSync('note', p.id, 'upsert', { ...p, isActiveParking: false, updatedAt: now });
+        }
+      }
 
-    onNoteMeaningfulAction?.(newNote.page);
+      const newNote: LocalNote = {
+        id,
+        documentId,
+        highlightId: targetHighlightId,
+        type: composerType,
+        noteText: noteText.trim(),
+        quoteText: quoteText.trim() || undefined,
+        page: targetPage,
+        y: targetY,
+        locator: { page: targetPage, y: targetY },
+        status: composerType === 'question' ? 'open' : undefined,
+        isActiveParking: composerType === 'parking',
+        createdAt: now,
+        updatedAt: now
+      };
 
-    setNoteText('');
-    setQuoteText('');
-    setTargetHighlightId(undefined);
-    setComposerOpen(false);
-    onClearInitialComposer?.();
+      await localDB.notes.add(newNote);
+      await enqueueSync('note', id, 'upsert', newNote);
+
+      // Update last meaningful activity
+      await localDB.progress.update(documentId, {
+        lastMeaningfulActivityAt: now,
+        updatedAt: now
+      });
+
+      onNoteMeaningfulAction?.(newNote.page);
+      onNotesChanged?.();
+
+      setNoteText('');
+      setQuoteText('');
+      setTargetHighlightId(undefined);
+      setComposerOpen(false);
+      onClearInitialComposer?.();
+    } catch (err: unknown) {
+      console.error('Failed to create note:', err);
+      // Requirement 13: Visible error alert, do NOT close composer silently!
+      setErrorMessage('Lỗi khi lưu ghi chú: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  // Requirement 14: Edit Note
+  // Requirement 7 & 14: Edit Note
   const handleStartEdit = (note: LocalNote) => {
     setEditingNoteId(note.id);
     setEditingText(note.noteText);
+    setErrorMessage(null);
   };
 
   const handleSaveEdit = async (noteId: string) => {
-    if (!localDB || !editingText.trim()) return;
-    const now = new Date().toISOString();
-    const existing = notes.find(n => n.id === noteId);
-    if (!existing) return;
+    if (!editingText.trim()) {
+      setErrorMessage('Nội dung ghi chú không được để trống.');
+      return;
+    }
+    if (!localDB) {
+      setErrorMessage('Không thể kết nối cơ sở dữ liệu trên thiết bị.');
+      return;
+    }
 
-    const updated: LocalNote = {
-      ...existing,
-      noteText: editingText.trim(),
-      updatedAt: now
-    };
+    try {
+      setErrorMessage(null);
+      const now = new Date().toISOString();
+      const existing = notes.find(n => n.id === noteId);
+      if (!existing) return;
 
-    await localDB.notes.update(noteId, { noteText: updated.noteText, updatedAt: now });
-    await enqueueSync('note', noteId, 'upsert', updated);
+      const updated: LocalNote = {
+        ...existing,
+        noteText: editingText.trim(),
+        updatedAt: now
+      };
 
-    await localDB.progress.update(documentId, {
-      lastMeaningfulActivityAt: now,
-      updatedAt: now
-    });
+      await localDB.notes.update(noteId, { noteText: updated.noteText, updatedAt: now });
+      await enqueueSync('note', noteId, 'upsert', updated);
 
-    setEditingNoteId(null);
-    setEditingText('');
+      await localDB.progress.update(documentId, {
+        lastMeaningfulActivityAt: now,
+        updatedAt: now
+      });
+
+      onNotesChanged?.();
+
+      setEditingNoteId(null);
+      setEditingText('');
+    } catch (err: unknown) {
+      console.error('Failed to save edited note:', err);
+      setErrorMessage('Lỗi khi cập nhật ghi chú: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
+  // Requirement 9: Resolve / reopen question
   const handleResolveQuestion = async (note: LocalNote) => {
-    if (!localDB) return;
-    const now = new Date().toISOString();
-    const isNowResolved = note.status !== 'resolved';
-    const nextStatus = isNowResolved ? 'resolved' : 'reopened';
+    if (!localDB) {
+      setErrorMessage('Không thể kết nối cơ sở dữ liệu trên thiết bị.');
+      return;
+    }
 
-    const updated = {
-      ...note,
-      status: nextStatus as 'resolved' | 'reopened',
-      resolutionText: isNowResolved ? (resolutionInput.trim() || 'Đã giải quyết') : undefined,
-      updatedAt: now
-    };
+    try {
+      setErrorMessage(null);
+      const now = new Date().toISOString();
+      const isNowResolved = note.status !== 'resolved';
+      const nextStatus = isNowResolved ? 'resolved' : 'reopened';
 
-    await localDB.notes.update(note.id, updated);
-    await enqueueSync('note', note.id, 'upsert', updated);
+      const updated = {
+        ...note,
+        status: nextStatus as 'resolved' | 'reopened',
+        resolutionText: isNowResolved ? (resolutionInput.trim() || 'Đã giải quyết') : undefined,
+        updatedAt: now
+      };
 
-    await localDB.progress.update(documentId, {
-      lastMeaningfulActivityAt: now,
-      updatedAt: now
-    });
+      await localDB.notes.update(note.id, updated);
+      await enqueueSync('note', note.id, 'upsert', updated);
 
-    onNoteMeaningfulAction?.(note.page);
+      await localDB.progress.update(documentId, {
+        lastMeaningfulActivityAt: now,
+        updatedAt: now
+      });
 
-    setResolvingNoteId(null);
-    setResolutionInput('');
+      onNoteMeaningfulAction?.(note.page);
+      onNotesChanged?.();
+
+      setResolvingNoteId(null);
+      setResolutionInput('');
+    } catch (err: unknown) {
+      console.error('Failed to resolve question:', err);
+      setErrorMessage('Lỗi khi cập nhật câu hỏi: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
+  // Requirement 8: Delete note
   const handleDeleteNote = async (id: string) => {
-    if (!localDB) return;
-    await localDB.notes.delete(id);
-    await enqueueSync('note', id, 'delete', { id });
+    if (!localDB) {
+      setErrorMessage('Không thể kết nối cơ sở dữ liệu trên thiết bị.');
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      await localDB.notes.delete(id);
+      await enqueueSync('note', id, 'delete', { id });
+      onNotesChanged?.();
+    } catch (err: unknown) {
+      console.error('Failed to delete note:', err);
+      setErrorMessage('Lỗi khi xóa ghi chú: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   // Filter notes
@@ -240,6 +326,34 @@ export function NotesPanel({
           ✕
         </button>
       </div>
+
+      {/* Error Banner when composer is not open (Requirement 13) */}
+      {errorMessage && !composerOpen && (
+        <div
+          role="alert"
+          style={{
+            background: 'var(--banner-error-bg)',
+            border: '1px solid var(--banner-error-border)',
+            color: 'var(--banner-error-text)',
+            borderRadius: 10,
+            padding: '8px 12px',
+            fontSize: 12,
+            marginBottom: 10,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <span>⚠️ {errorMessage}</span>
+          <button
+            type="button"
+            style={{ background: 'none', border: 0, color: 'inherit', cursor: 'pointer', padding: '0 4px' }}
+            onClick={() => setErrorMessage(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Tabs */}
       <div className="filterRow" style={{ margin: '0 0 10px 0', gap: 6 }}>
@@ -312,6 +426,7 @@ export function NotesPanel({
             setTargetY(currentY);
             setTargetHighlightId(undefined);
             setComposerOpen(true);
+            setErrorMessage(null);
           }}
         >
           ＋ Tạo ghi chú / câu hỏi mới
@@ -330,6 +445,32 @@ export function NotesPanel({
             gap: 8
           }}
         >
+          {/* Visible Error Banner in Composer (Requirement 13) */}
+          {errorMessage && (
+            <div
+              role="alert"
+              style={{
+                background: 'var(--banner-error-bg)',
+                border: '1px solid var(--banner-error-border)',
+                color: 'var(--banner-error-text)',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 12,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <span>⚠️ {errorMessage}</span>
+              <button
+                type="button"
+                style={{ background: 'none', border: 0, color: 'inherit', cursor: 'pointer', padding: '0 4px', fontSize: 13 }}
+                onClick={() => setErrorMessage(null)}
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               type="button"

@@ -6,6 +6,7 @@ import { Document, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
+import { liveQuery } from 'dexie';
 import { localDB, type LocalDocument, type LocalProgress, type LocalHighlight, type LocalNote, type HighlightColor } from '@/lib/db/local';
 import { readPdfFromOPFS, pdfExistsInOPFS } from '@/lib/storage/opfs';
 import { mergePagesIntoRanges, meaningfulCoveragePercent } from '@/lib/progress/cassette';
@@ -14,7 +15,7 @@ import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
 import { PdfPageItem } from './PdfPageItem';
 import { HighlightToolbar } from './HighlightToolbar';
-import { NotesPanel } from './NotesPanel';
+import { NotesPanel, type ComposerTrigger } from './NotesPanel';
 import { ResumeToast } from './ResumeToast';
 import { FinishTapeModal } from './FinishTapeModal';
 import { ImportPdfModal } from '@/components/ImportPdfModal';
@@ -77,6 +78,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [initialComposerPage, setInitialComposerPage] = useState<number | undefined>(undefined);
   const [initialComposerY, setInitialComposerY] = useState<number | undefined>(undefined);
   const [initialComposerHighlightId, setInitialComposerHighlightId] = useState<string | undefined>(undefined);
+  const [composerTrigger, setComposerTrigger] = useState<ComposerTrigger | null>(null);
 
   // Qualified pages set for cassette coverage (Meaningful Coverage: dwell >= 8s or interaction)
   const qualifiedPagesRef = useRef<Set<number>>(new Set());
@@ -263,6 +265,45 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Stable callback to reload notes from DB after any mutation (Requirement 1 & 2)
+  const refreshNotes = useCallback(async () => {
+    if (!localDB) return;
+    try {
+      const updatedNotes = await localDB.notes.where('documentId').equals(documentId).toArray();
+      setNotes(updatedNotes);
+    } catch (err) {
+      console.error('Failed to refresh notes:', err);
+    }
+  }, [documentId]);
+
+  // Dexie liveQuery subscriptions for notes and highlights (Requirement 1 & 2: single source of truth)
+  useEffect(() => {
+    const db = localDB;
+    if (!db) return;
+    const subNotes = liveQuery(() =>
+      db.notes.where('documentId').equals(documentId).toArray()
+    ).subscribe({
+      next: (updatedNotes) => {
+        setNotes(updatedNotes);
+      },
+      error: (err) => console.error('Error observing notes in reader:', err)
+    });
+
+    const subHighlights = liveQuery(() =>
+      db.highlights.where('documentId').equals(documentId).toArray()
+    ).subscribe({
+      next: (updatedHls) => {
+        setHighlights(updatedHls);
+      },
+      error: (err) => console.error('Error observing highlights in reader:', err)
+    });
+
+    return () => {
+      subNotes.unsubscribe();
+      subHighlights.unsubscribe();
+    };
+  }, [documentId]);
 
   // Flush pending progress helper (stable callback depending only on documentId)
   const flushProgressNow = useCallback(() => {
@@ -657,7 +698,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     return id;
   };
 
-  // Requirement 4: Selection -> Note Source Accuracy (Links highlight and passes exact page/locator)
+  // Requirement 4 & 5: Selection -> Note Source Accuracy (Links highlight and passes exact page/locator)
   const handleAddNoteFromSelection = async (quote: string) => {
     const hlId = await handleCreateHighlight(lastHighlightColor);
     const yVal = selectedRects.length > 0 ? selectedRects[0].y : currentY;
@@ -667,11 +708,19 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setInitialComposerPage(selectedPageNum);
     setInitialComposerY(yVal);
     setInitialComposerHighlightId(hlId);
+    setComposerTrigger({
+      type: 'quick',
+      quote,
+      page: selectedPageNum,
+      y: yVal,
+      highlightId: hlId,
+      token: Date.now()
+    });
     setNotesOpen(true);
     setSelectionToolbarPos(null);
   };
 
-  // Requirement 4: Selection -> Question Source Accuracy
+  // Requirement 4 & 6: Selection -> Question Source Accuracy
   const handleAddQuestionFromSelection = async (quote: string) => {
     const hlId = await handleCreateHighlight(lastHighlightColor);
     const yVal = selectedRects.length > 0 ? selectedRects[0].y : currentY;
@@ -681,6 +730,14 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setInitialComposerPage(selectedPageNum);
     setInitialComposerY(yVal);
     setInitialComposerHighlightId(hlId);
+    setComposerTrigger({
+      type: 'question',
+      quote,
+      page: selectedPageNum,
+      y: yVal,
+      highlightId: hlId,
+      token: Date.now()
+    });
     setNotesOpen(true);
     setSelectionToolbarPos(null);
   };
@@ -707,55 +764,61 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     setActiveHighlightPopup(null);
   };
 
-  // Requirement 7: Quick Parking Note submit handler
+  // Requirement 7 & 10: Quick Parking Note submit handler (Deactivates older parking notes)
   const handleSaveQuickPark = async () => {
     if (!localDB || !quickParkText.trim()) return;
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
 
-    // Deactivate previous active parking notes
-    const existing = await localDB.notes
-      .where('documentId')
-      .equals(documentId)
-      .filter(n => n.type === 'parking' && !!n.isActiveParking)
-      .toArray();
+    try {
+      // Deactivate previous active parking notes
+      const existing = await localDB.notes
+        .where('documentId')
+        .equals(documentId)
+        .filter(n => n.type === 'parking' && !!n.isActiveParking)
+        .toArray();
 
-    for (const p of existing) {
-      await localDB.notes.update(p.id, { isActiveParking: false, updatedAt: now });
-      await enqueueSync('note', p.id, 'upsert', { ...p, isActiveParking: false, updatedAt: now });
+      for (const p of existing) {
+        await localDB.notes.update(p.id, { isActiveParking: false, updatedAt: now });
+        await enqueueSync('note', p.id, 'upsert', { ...p, isActiveParking: false, updatedAt: now });
+      }
+
+      const newNote: LocalNote = {
+        id,
+        documentId,
+        type: 'parking',
+        noteText: quickParkText.trim(),
+        page: currentPage,
+        y: currentY,
+        locator: { page: currentPage, y: currentY },
+        isActiveParking: true,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      await localDB.notes.add(newNote);
+      await enqueueSync('note', id, 'upsert', newNote);
+
+      await localDB.progress.update(documentId, {
+        lastMeaningfulActivityAt: now,
+        updatedAt: now
+      });
+
+      qualifyPage(currentPage);
+      refreshNotes();
+
+      setQuickParkText('');
+      setQuickParkOpen(false);
+      setQuickParkNotification('📌 Đã lưu Parking Note cho lần đọc tới.');
+      setTimeout(() => setQuickParkNotification(null), 3000);
+    } catch (err: unknown) {
+      console.error('Failed to save quick park:', err);
+      setQuickParkNotification('⚠️ Không thể lưu Parking Note: ' + (err instanceof Error ? err.message : String(err)));
+      setTimeout(() => setQuickParkNotification(null), 4000);
     }
-
-    const newNote: LocalNote = {
-      id,
-      documentId,
-      type: 'parking',
-      noteText: quickParkText.trim(),
-      page: currentPage,
-      y: currentY,
-      locator: { page: currentPage, y: currentY },
-      isActiveParking: true,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await localDB.notes.add(newNote);
-    await enqueueSync('note', id, 'upsert', newNote);
-    setNotes(prev => [...prev.map(n => n.type === 'parking' ? { ...n, isActiveParking: false } : n), newNote]);
-
-    await localDB.progress.update(documentId, {
-      lastMeaningfulActivityAt: now,
-      updatedAt: now
-    });
-
-    qualifyPage(currentPage);
-
-    setQuickParkText('');
-    setQuickParkOpen(false);
-    setQuickParkNotification('📌 Đã lưu Parking Note cho lần đọc tới.');
-    setTimeout(() => setQuickParkNotification(null), 3000);
   };
 
-  // Requirement 8: Desktop Keyboard Shortcuts
+  // Requirement 4 & 8: Desktop Keyboard Shortcuts (N opens Quick Note composer directly, Q opens Question directly)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
@@ -787,6 +850,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         setInitialComposerQuote(null);
         setInitialComposerPage(currentPage);
         setInitialComposerY(currentY);
+        setComposerTrigger({
+          type: 'quick',
+          quote: null,
+          page: currentPage,
+          y: currentY,
+          token: Date.now()
+        });
         setNotesOpen(true);
       } else if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault();
@@ -794,6 +864,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         setInitialComposerQuote(null);
         setInitialComposerPage(currentPage);
         setInitialComposerY(currentY);
+        setComposerTrigger({
+          type: 'question',
+          quote: null,
+          page: currentPage,
+          y: currentY,
+          token: Date.now()
+        });
         setNotesOpen(true);
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
@@ -1198,7 +1275,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
           )}
         </main>
 
-        {/* Slide-over Notes Panel */}
+        {/* Slide-over Notes Panel (Requirement 1, 2, 3, 4, 7, 8, 9) */}
         {notesOpen && (
           <NotesPanel
             documentId={documentId}
@@ -1209,6 +1286,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             isOpen={notesOpen}
             onClose={() => setNotesOpen(false)}
             onJumpToSource={jumpToPageAndY}
+            onNotesChanged={refreshNotes}
+            composerTrigger={composerTrigger}
             initialComposerQuote={initialComposerQuote}
             initialComposerType={initialComposerType}
             initialComposerPage={initialComposerPage}
@@ -1217,6 +1296,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             onClearInitialComposer={() => {
               setInitialComposerQuote(null);
               setInitialComposerHighlightId(undefined);
+              setComposerTrigger(null);
             }}
             onNoteMeaningfulAction={(p) => qualifyPage(p)}
           />

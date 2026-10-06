@@ -35,15 +35,23 @@ export default function HomePage() {
         error: console.error
       });
 
-    const subNotes = liveQuery(() => db.notes.where('isActiveParking').equals(1).toArray())
-      .subscribe({
-        next: (items) => {
-          const map: Record<string, LocalNote> = {};
-          items.forEach(n => { map[n.documentId] = n; });
-          setParkingMap(map);
-        },
-        error: console.error
-      });
+    const subNotes = liveQuery(() =>
+      db.notes.filter(n => n.type === 'parking' && !!n.isActiveParking).toArray()
+    ).subscribe({
+      next: (items) => {
+        const map: Record<string, LocalNote> = {};
+        // Prioritize the most recently updated active parking note per document
+        items
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .forEach(n => {
+            if (!map[n.documentId]) {
+              map[n.documentId] = n;
+            }
+          });
+        setParkingMap(map);
+      },
+      error: console.error
+    });
 
     return () => {
       subDocs.unsubscribe();
