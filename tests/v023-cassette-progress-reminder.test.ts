@@ -315,29 +315,32 @@ describe('StudyFlow v0.2.3 — Reminder Engine, Due Query & Anti-Spam', () => {
   });
 
   it('7. showContext ON includes Parking Note', () => {
-    function composeMessage(title: string, pct: number, page: number, showContext: boolean, parkingText?: string) {
-      let msg = `📼 *${title}*\nCuộn băng đang ở *${pct}%*\nBạn đang dừng ở *trang ${page}*.`;
+    function composeMessage(title: string, posPct: number, page: number, totalPages: number, showContext: boolean, parkingText?: string) {
+      let msg = `📼 *${title}*\n\nBạn đang dừng ở *trang ${page} / ${totalPages}*.\nVị trí đọc: khoảng ${posPct}%`;
       if (showContext && parkingText) {
         msg += `\n\n📌 Lần trước bạn để lại:\n“_${parkingText}_”`;
       }
       return msg;
     }
 
-    const msg = composeMessage('Deep Learning', 35, 12, true, 'Kiểm tra backprop ở trang 14');
+    const msg = composeMessage('Deep Learning', 35, 12, 50, true, 'Kiểm tra backprop ở trang 14');
+    assert.ok(msg.includes('Bạn đang dừng ở *trang 12 / 50*.'), 'Message must contain page X / Y');
+    assert.ok(msg.includes('Vị trí đọc: khoảng 35%'), 'Message must contain reading position');
     assert.ok(msg.includes('📌 Lần trước bạn để lại:'), 'Message must contain parking note');
     assert.ok(msg.includes('Kiểm tra backprop ở trang 14'));
   });
 
   it('8. showContext OFF excludes note', () => {
-    function composeMessage(title: string, pct: number, page: number, showContext: boolean, parkingText?: string) {
-      let msg = `📼 *${title}*\nCuộn băng đang ở *${pct}%*\nBạn đang dừng ở *trang ${page}*.`;
+    function composeMessage(title: string, posPct: number, page: number, totalPages: number, showContext: boolean, parkingText?: string) {
+      let msg = `📼 *${title}*\n\nBạn đang dừng ở *trang ${page} / ${totalPages}*.\nVị trí đọc: khoảng ${posPct}%`;
       if (showContext && parkingText) {
         msg += `\n\n📌 Lần trước bạn để lại:\n“_${parkingText}_”`;
       }
       return msg;
     }
 
-    const msg = composeMessage('Deep Learning', 35, 12, false, 'Kiểm tra backprop ở trang 14');
+    const msg = composeMessage('Deep Learning', 35, 12, 50, false, 'Kiểm tra backprop ở trang 14');
+    assert.ok(msg.includes('Bạn đang dừng ở *trang 12 / 50*.'), 'Message must contain page X / Y');
     assert.strictEqual(msg.includes('📌 Lần trước bạn để lại:'), false, 'Message must NOT contain note when showContext is false');
   });
 

@@ -23,8 +23,9 @@ export function CassetteProgress({
   className = '',
   style
 }: CassetteProgressProps) {
-  // Normalize percentage to 0..100 integer
-  const pct = Math.max(0, Math.min(100, Math.round(Number.isFinite(value) ? value : 0)));
+  // Normalize percentage to 0..100 with at most 1 decimal place (e.g. 7.3 or 8)
+  const num = Number.isFinite(value) ? value : 0;
+  const pct = Math.max(0, Math.min(100, Math.round(num * 10) / 10));
 
   // Normalize variant mapping
   const normalizedVariant: 'mini' | 'reader' | 'reward' =
@@ -49,7 +50,8 @@ export function CassetteProgress({
   return (
     <div
       className={`studyflow-cassette-widget ${normalizedVariant} ${className}`}
-      aria-label={`Tiến độ cuộn băng: ${pct}%`}
+      aria-label={`Vị trí đọc: ${pct}% tài liệu`}
+      title="Cassette cho biết bạn đang ở đâu trong tài liệu. Nó không đánh giá mức độ hiểu."
       style={{
         display: 'inline-flex',
         alignItems: 'center',

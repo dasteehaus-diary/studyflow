@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       '',
       `Tin nhắn thử nghiệm đã gửi thành công tới Chat ID \`${chatId}\`!`,
       '',
-      'Khi bạn tạm dừng đọc quá số ngày đã cài đặt, StudyFlow sẽ tự động gửi thông báo kèm dòng suy nghĩ (Parking Note) và % cuộn băng để bạn dễ dàng tiếp tục.'
+      'Khi bạn tạm dừng đọc quá số ngày đã cài đặt, StudyFlow sẽ tự động gửi thông báo kèm dòng suy nghĩ (Parking Note) và vị trí trang đọc chính xác để bạn dễ dàng tiếp tục.'
     ].join('\n');
 
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {

@@ -9,7 +9,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { liveQuery } from 'dexie';
 import { localDB, type LocalDocument, type LocalProgress, type LocalHighlight, type LocalNote, type HighlightColor } from '@/lib/db/local';
 import { readPdfFromOPFS, pdfExistsInOPFS } from '@/lib/storage/opfs';
-import { mergePagesIntoRanges, meaningfulCoveragePercent } from '@/lib/progress/cassette';
+import { mergePagesIntoRanges, readingPositionPercent } from '@/lib/progress/cassette';
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
@@ -1027,11 +1027,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     return map;
   }, [notes]);
 
-  // Cassette coverage percentage (meaningful coverage)
-  const coveragePct = useMemo(() => {
-    if (!progress) return 0;
-    return meaningfulCoveragePercent(totalPages, progress.visitedRanges);
-  }, [progress, totalPages]);
+  // Cassette reading position percentage (based strictly on current locator and total pages)
+  const positionPct = useMemo(() => {
+    return readingPositionPercent(totalPages, currentPage, currentY);
+  }, [totalPages, currentPage, currentY]);
 
   // Background style based on surrounding theme
   const getThemeBg = () => {
@@ -1533,7 +1532,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
           {/* Cassette Progress Center (Hero Analog Widget) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CassetteProgress value={coveragePct} variant="reader" />
+            <CassetteProgress value={positionPct} variant="reader" />
           </div>
 
           {/* Right: Location & Finish Tape Button */}
@@ -1542,7 +1541,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               Trang {currentPage} / {totalPages || '—'}
             </span>
 
-            {(currentPage >= (totalPages || 1) - 1 || coveragePct >= 80 || doc?.status === 'completed') && (
+            {(currentPage >= (totalPages || 1) - 1 || positionPct >= 80 || doc?.status === 'completed') && (
               <button
                 className="primary"
                 style={{

@@ -781,7 +781,7 @@ export function NotesPanel({
                     }
                   }}
                 >
-                  {isResolved ? '↩ Mở lại câu hỏi' : '✓ Đánh dấu đã hiểu'}
+                  {isResolved ? '↩ Mở lại câu hỏi' : '✓ Đánh dấu đã giải đáp'}
                 </button>
               </div>
             )}

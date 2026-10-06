@@ -222,7 +222,7 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
             <p className="muted" style={{ lineHeight: 1.6, marginBottom: 20 }}>
               {relinkTarget
                 ? 'Chọn đúng file PDF gốc để nối lại dữ liệu ghi chú, vị trí và cassette progress.'
-                : 'Tài liệu PDF được lưu trữ cục bộ trên máy bạn qua OPFS và không tải lên máy chủ. Ghi chú và tiến độ học sẽ được đồng bộ an toàn.'}
+                : 'Tài liệu PDF được lưu trữ cục bộ trên máy bạn qua OPFS và không tải lên máy chủ. Ghi chú và tiến độ đọc sẽ được đồng bộ an toàn.'}
             </p>
             <label
               className="primary"

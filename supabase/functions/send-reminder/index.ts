@@ -81,9 +81,10 @@ serve(async (req) => {
       const currentPage = progress?.current_locator?.page || 1;
       const currentY = progress?.current_locator?.y || 0;
 
-      // Meaningful coverage percentage calculation
-      const qualifiedCount = visitedRanges.reduce((sum, [a, b]) => sum + Math.max(0, b - a + 1), 0);
-      const pct = Math.min(100, Math.max(0, Math.round((qualifiedCount / totalPages) * 100)));
+      // Reading position percentage (based strictly on locator and totalPages)
+      const clampedY = Math.max(0, Math.min(1, Number.isFinite(currentY) ? currentY : 0));
+      const posFraction = ((Math.max(1, currentPage) - 1) + clampedY) / totalPages;
+      const positionPercent = Math.max(0, Math.min(100, Math.round(posFraction * 1000) / 10));
 
       // Contextual thoughts: active parking note or unresolved question
       let contextualSnippet = '';
@@ -120,11 +121,12 @@ serve(async (req) => {
       // Deep link to exact document, page, and scroll offset
       const deepLink = `${appBaseUrl}/reader/${doc.id}?page=${currentPage}&y=${currentY}`;
 
-      // Compose contextual Vietnamese message
+      // Compose contextual Vietnamese message (Page X / Y prioritized over position %)
       const message = [
         `📼 *${doc.title}*`,
-        `Cuộn băng đang ở *${pct}%*`,
-        `Bạn đang dừng ở *trang ${currentPage}*.`,
+        '',
+        `Bạn đang dừng ở *trang ${currentPage} / ${totalPages}*.`,
+        `Vị trí đọc: khoảng ${positionPercent}%`,
         contextualSnippet,
         '',
         `▶ [Tiếp tục từ chỗ đang dở](${deepLink})`
