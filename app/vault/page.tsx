@@ -3,20 +3,36 @@
 import { useState, useEffect } from 'react';
 import { liveQuery } from 'dexie';
 import { AppShell } from '@/components/AppShell';
-import { localDB, type LocalUnlockedReward } from '@/lib/db/local';
+import { localDB, type LocalUnlockedReward, type LocalDocument } from '@/lib/db/local';
 import { playRewardSound } from '@/lib/rewards/audio-synth';
 import { formatRelativeTime } from '@/lib/utils/time';
 
 export default function VaultPage() {
   const [unlockedRewards, setUnlockedRewards] = useState<LocalUnlockedReward[]>([]);
+  const [documentsMap, setDocumentsMap] = useState<Record<string, LocalDocument>>({});
   const [activeModalReward, setActiveModalReward] = useState<LocalUnlockedReward | null>(null);
 
   useEffect(() => {
     const db = localDB;
     if (!db) return;
-    const subscription = liveQuery(() => db.unlockedRewards.orderBy('unlockedAt').reverse().toArray())
+
+    const subRewards = liveQuery(() => db.unlockedRewards.orderBy('unlockedAt').reverse().toArray())
       .subscribe({ next: setUnlockedRewards, error: console.error });
-    return () => subscription.unsubscribe();
+
+    const subDocs = liveQuery(() => db.documents.toArray())
+      .subscribe({
+        next: (docs) => {
+          const map: Record<string, LocalDocument> = {};
+          docs.forEach(d => { map[d.id] = d; });
+          setDocumentsMap(map);
+        },
+        error: console.error
+      });
+
+    return () => {
+      subRewards.unsubscribe();
+      subDocs.unsubscribe();
+    };
   }, []);
 
   const activePayload = activeModalReward?.payload as Record<string, unknown> | undefined;
@@ -31,41 +47,69 @@ export default function VaultPage() {
       </p>
 
       {/* Rewards Grid */}
-      <div className="vaultGrid">
-        {unlockedRewards.map((reward) => {
-          const payload = reward.payload as Record<string, unknown>;
-          const icon = (payload.icon as string) || '🎁';
+      {unlockedRewards.length === 0 ? (
+        <div className="card emptyState" style={{ marginTop: 20, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📼</div>
+          <h3 style={{ margin: '0 0 8px' }}>Chưa tìm thấy B-Side nào.</h3>
+          <p className="muted" style={{ maxWidth: 460, margin: '0 auto', lineHeight: 1.5 }}>
+            Hoàn thành cuộn băng đầu tiên rồi xem StudyFlow giấu gì ở mặt B.
+          </p>
+        </div>
+      ) : (
+        <div className="vaultGrid">
+          {unlockedRewards.map((reward) => {
+            const payload = reward.payload as Record<string, unknown>;
+            const icon = (payload.icon as string) || '🎁';
 
-          return (
+            return (
+              <div
+                key={reward.id}
+                className="card reward"
+                style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
+                onClick={() => {
+                  setActiveModalReward(reward);
+                  if (reward.rewardType === 'audio') {
+                    playRewardSound((payload.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare');
+                  }
+                }}
+              >
+                <div>{icon}</div>
+                <small style={{ fontWeight: 600, color: 'var(--ink)' }}>{reward.rewardTitle}</small>
+              </div>
+            );
+          })}
+
+          {/* Mysterious unnumbered locked placeholders */}
+          {Array.from({ length: 3 }).map((_, i) => (
             <div
-              key={reward.id}
+              key={`placeholder-${i}`}
               className="card reward"
-              style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
-              onClick={() => {
-                setActiveModalReward(reward);
-                if (reward.rewardType === 'audio') {
-                  playRewardSound((payload.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare');
-                }
+              style={{
+                opacity: 0.45,
+                background: 'var(--card-subtle)',
+                borderStyle: 'dashed',
+                transition: 'transform 0.2s ease',
+                cursor: 'default'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'rotate(-1deg) translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'none';
               }}
             >
-              <div>{icon}</div>
-              <small style={{ fontWeight: 600, color: 'var(--ink)' }}>{reward.rewardTitle}</small>
+              <div style={{ fontSize: 32 }}>📼</div>
+              <small>???</small>
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
 
-        {/* Mysterious unnumbered locked placeholders (Requirement 17) */}
-        {Array.from({ length: Math.max(4, 8 - unlockedRewards.length) }).map((_, i) => (
-          <div
-            key={`placeholder-${i}`}
-            className="card reward"
-            style={{ opacity: 0.35, background: 'rgba(0,0,0,0.02)', borderStyle: 'dashed' }}
-          >
-            <div style={{ fontSize: 32 }}>📼</div>
-            <small>???</small>
-          </div>
-        ))}
-      </div>
+      {unlockedRewards.length > 0 && (
+        <p className="muted" style={{ fontStyle: 'italic', fontSize: 13, marginTop: 32, textAlign: 'center' }}>
+          “Còn những thứ khác đang nằm đâu đó trong B-Side…”
+        </p>
+      )}
 
       {/* Detail Modal */}
       {activeModalReward && (
@@ -164,7 +208,7 @@ export default function VaultPage() {
             )}
 
             <div className="muted" style={{ fontSize: 12, marginTop: 16 }}>
-              Mở khóa từ tài liệu: <strong>{activeModalReward.documentTitle || 'Cuộn băng StudyFlow'}</strong>
+              Mở khóa từ tài liệu: <strong>{(activeModalReward.documentId && documentsMap[activeModalReward.documentId]?.title) || activeModalReward.documentTitle || 'Cuộn băng StudyFlow'}</strong>
               <br />
               <span style={{ fontSize: 11 }}>({formatRelativeTime(activeModalReward.unlockedAt)})</span>
             </div>

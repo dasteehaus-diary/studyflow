@@ -15,7 +15,14 @@ import { Providers } from '@/components/Providers';
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('studyflow_theme')||'warm';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`
+          }}
+        />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

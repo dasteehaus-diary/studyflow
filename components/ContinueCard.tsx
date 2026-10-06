@@ -29,7 +29,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           overflow: 'hidden'
         }}
       >
-        {document.thumbnail && (
+        {document.thumbnail ? (
           <img
             src={document.thumbnail}
             alt={document.title}
@@ -38,20 +38,24 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
               inset: 0,
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
-              opacity: 0.8
+              objectFit: 'cover'
             }}
           />
+        ) : (
+          <div style={{
+            fontSize: 13,
+            fontWeight: 700,
+            position: 'relative',
+            zIndex: 2,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            padding: 8
+          }}>
+            {document.title}
+          </div>
         )}
-        <div style={{
-          fontSize: 13,
-          fontWeight: 700,
-          position: 'relative',
-          zIndex: 2,
-          textShadow: document.thumbnail ? '0 1px 4px rgba(0,0,0,0.85)' : undefined
-        }}>
-          {document.title}
-        </div>
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
@@ -62,7 +66,19 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <span style={{ textTransform: 'none', fontWeight: 'normal' }}>· {lastActive}</span>
         </div>
 
-        <h3 style={{ margin: 0 }}>{document.title}</h3>
+        <h3
+          style={{
+            margin: 0,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word'
+          }}
+          title={document.title}
+        >
+          {document.title}
+        </h3>
 
         {activeParkingNote ? (
           <div
@@ -84,7 +100,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ width: 'min(220px, 100%)' }}>
             <CassetteProgress value={pct} />
           </div>
           <span className="muted" style={{ fontSize: 12 }}>Trang {currentPage}</span>

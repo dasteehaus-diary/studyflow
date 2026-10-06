@@ -31,7 +31,7 @@ interface PdfReaderProps {
 }
 
 export function PdfReader({ documentId, initialPage, initialY, initialHighlightId }: PdfReaderProps) {
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
 
   const [doc, setDoc] = useState<LocalDocument | null>(null);
   const [progress, setProgress] = useState<LocalProgress | null>(null);
@@ -43,11 +43,14 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [currentPage, setCurrentPage] = useState<number>(initialPage || 1);
   const [currentY, setCurrentY] = useState<number>(initialY || 0);
 
-  // UI modes
+  // UI modes & Reader view state
   const [notesOpen, setNotesOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [theme, setTheme] = useState<'warm' | 'white' | 'dark'>('warm');
+  const [theme, setTheme] = useState<'warm' | 'white' | 'dark'>(settings.readerBg || 'warm');
+  const [fitMode, setFitMode] = useState<'fit-width' | 'fit-page' | 'free'>(settings.fitMode || 'fit-width');
   const [scale, setScale] = useState<number>(1.15);
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [pageInputVal, setPageInputVal] = useState<string>(String(initialPage || 1));
   const [finishTapeOpen, setFinishTapeOpen] = useState(false);
   const [relinkModalOpen, setRelinkModalOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
@@ -63,7 +66,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [selectedText, setSelectedText] = useState('');
   const [selectedRects, setSelectedRects] = useState<LocalHighlight['rects']>([]);
   const [selectedPageNum, setSelectedPageNum] = useState<number>(1);
-  const [lastHighlightColor, setLastHighlightColor] = useState<HighlightColor>('apricot');
+  const [lastHighlightColor, setLastHighlightColor] = useState<HighlightColor>(settings.defaultHlColor || 'apricot');
 
   // Highlight click popup state
   const [activeHighlightPopup, setActiveHighlightPopup] = useState<{ highlight: LocalHighlight; pos: { x: number; y: number } } | null>(null);
@@ -104,12 +107,64 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const currentPageRef = useRef<number>(currentPage);
   useEffect(() => {
     currentPageRef.current = currentPage;
+    setPageInputVal(String(currentPage));
   }, [currentPage]);
 
   // Page elements map to eliminate O(N) DOM query loops on scroll
   const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map());
 
-  // Apply default settings from context (Requirement 5)
+  // Real Fit Scale Calculation (Fit Width / Fit Page based on real viewport and PDF geometry)
+  const recalculateFitScale = useCallback(() => {
+    if (fitMode === 'free' || !stageRef.current || !pageDimensions) return;
+    const stage = stageRef.current;
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+    if (stageWidth <= 0 || pageDimensions.width <= 0) return;
+
+    // Available stage width and height excluding comfortable padding
+    const availableWidth = Math.max(260, stageWidth - 48);
+    const availableHeight = Math.max(280, stageHeight - 56);
+
+    if (fitMode === 'fit-width') {
+      const calculatedScale = Number((availableWidth / pageDimensions.width).toFixed(3));
+      const clampedScale = Math.max(0.4, Math.min(3.0, calculatedScale));
+      setScale(clampedScale);
+    } else if (fitMode === 'fit-page') {
+      const scaleX = availableWidth / pageDimensions.width;
+      const scaleY = availableHeight / pageDimensions.height;
+      const calculatedScale = Number((Math.min(scaleX, scaleY)).toFixed(3));
+      const clampedScale = Math.max(0.4, Math.min(3.0, calculatedScale));
+      setScale(clampedScale);
+    }
+  }, [fitMode, pageDimensions]);
+
+  useEffect(() => {
+    recalculateFitScale();
+  }, [recalculateFitScale]);
+
+  // Stage resize observer & window resize listener
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || fitMode === 'free') return;
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        recalculateFitScale();
+      });
+      ro.observe(stage);
+    } else {
+      const handleResize = () => recalculateFitScale();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+
+    return () => {
+      ro?.disconnect();
+    };
+  }, [fitMode, recalculateFitScale]);
+
+  // Apply default settings from context and live updates
   useEffect(() => {
     if (settings.readerBg) {
       setTheme(settings.readerBg);
@@ -117,12 +172,42 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     if (settings.defaultHlColor) {
       setLastHighlightColor(settings.defaultHlColor);
     }
-    if (settings.fitMode === 'fit-width') {
-      setScale(1.25);
-    } else if (settings.fitMode === 'fit-page') {
-      setScale(0.95);
+    if (settings.fitMode && settings.fitMode !== 'free') {
+      setFitMode(settings.fitMode);
     }
   }, [settings]);
+
+  // Theme change with persistence
+  const handleSetReaderTheme = (t: 'warm' | 'white' | 'dark') => {
+    setTheme(t);
+    updateSettings({ readerBg: t }).catch(console.error);
+  };
+
+  // Fit mode change with persistence
+  const handleSetFitMode = (mode: 'fit-width' | 'fit-page') => {
+    setFitMode(mode);
+    updateSettings({ fitMode: mode }).catch(console.error);
+  };
+
+  // Manual zoom controls (switch to free mode)
+  const handleZoomIn = () => {
+    setFitMode('free');
+    setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setFitMode('free');
+    setScale(s => Math.max(0.4, Number((s - 0.15).toFixed(2))));
+  };
+
+  const handlePageDimensions = useCallback((width: number, height: number) => {
+    setPageDimensions(prev => {
+      if (!prev || Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) {
+        return { width, height };
+      }
+      return prev;
+    });
+  }, []);
 
   // Load document, progress, highlights, and notes from Dexie
   const loadData = useCallback(async () => {
@@ -588,7 +673,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
       const isInput = activeEl && (
-        ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
         activeEl.isContentEditable
       );
 
@@ -628,10 +713,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         setQuickParkOpen(prev => !prev);
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
-        setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))));
+        handleZoomIn();
       } else if (e.key === '-') {
         e.preventDefault();
-        setScale(s => Math.max(0.7, Number((s - 0.15).toFixed(2))));
+        handleZoomOut();
       } else if (e.key === '?') {
         e.preventDefault();
         setShortcutsModalOpen(true);
@@ -693,35 +778,48 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             <div style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span>Trang</span>
               <input
-                type="number"
-                min={1}
-                max={totalPages}
-                value={currentPage}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (val >= 1 && val <= totalPages) {
+                type="text"
+                value={pageInputVal}
+                onChange={(e) => setPageInputVal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = parseInt(pageInputVal, 10);
+                    if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                      jumpToPageAndY(val, 0);
+                    } else {
+                      setPageInputVal(String(currentPage));
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  const val = parseInt(pageInputVal, 10);
+                  if (!isNaN(val) && val >= 1 && val <= totalPages) {
                     jumpToPageAndY(val, 0);
+                  } else {
+                    setPageInputVal(String(currentPage));
                   }
                 }}
                 style={{
-                  width: 48,
+                  width: 44,
                   padding: '3px 4px',
                   borderRadius: 6,
                   border: '1px solid var(--line)',
                   background: 'var(--panel)',
+                  color: 'var(--ink)',
                   textAlign: 'center',
                   fontSize: 13
                 }}
+                title="Nhập số trang và nhấn Enter"
               />
               <span>/ {totalPages}</span>
             </div>
 
             {/* Zoom Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 6 }}>
               <button
                 className="secondary"
                 style={{ fontSize: 12, padding: '4px 8px' }}
-                onClick={() => setScale(s => Math.max(0.7, Number((s - 0.15).toFixed(2))))}
+                onClick={handleZoomOut}
                 title="Thu nhỏ (-)"
               >
                 －
@@ -732,19 +830,39 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               <button
                 className="secondary"
                 style={{ fontSize: 12, padding: '4px 8px' }}
-                onClick={() => setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))))}
+                onClick={handleZoomIn}
                 title="Phóng to (+)"
               >
                 ＋
               </button>
             </div>
 
+            {/* Fit Mode Toggles */}
+            <div style={{ display: 'flex', gap: 2, marginLeft: 6 }}>
+              <button
+                className={`secondary ${fitMode === 'fit-width' ? 'activePill' : ''}`}
+                style={{ fontSize: 11, padding: '3px 7px', ...(fitMode === 'fit-width' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : {}) }}
+                onClick={() => handleSetFitMode('fit-width')}
+                title="Vừa chiều ngang (Fit Width)"
+              >
+                ↔ Vừa ngang
+              </button>
+              <button
+                className={`secondary ${fitMode === 'fit-page' ? 'activePill' : ''}`}
+                style={{ fontSize: 11, padding: '3px 7px', ...(fitMode === 'fit-page' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : {}) }}
+                onClick={() => handleSetFitMode('fit-page')}
+                title="Toàn trang (Fit Page)"
+              >
+                ↕ Vừa trang
+              </button>
+            </div>
+
             {/* Reading Background Toggles */}
-            <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+            <div style={{ display: 'flex', gap: 4, marginLeft: 6 }}>
               <button
                 className={`secondary ${theme === 'warm' ? 'activePill' : ''}`}
                 style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'warm' ? { background: '#ded6c5', borderColor: '#bbb' } : {}) }}
-                onClick={() => setTheme('warm')}
+                onClick={() => handleSetReaderTheme('warm')}
                 title="Nền sách giấy ấm"
               >
                 Ấm
@@ -752,7 +870,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               <button
                 className={`secondary ${theme === 'white' ? 'activePill' : ''}`}
                 style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'white' ? { background: '#ffffff', borderColor: '#bbb' } : {}) }}
-                onClick={() => setTheme('white')}
+                onClick={() => handleSetReaderTheme('white')}
                 title="Nền trắng sáng"
               >
                 Sáng
@@ -760,7 +878,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               <button
                 className={`secondary ${theme === 'dark' ? 'activePill' : ''}`}
                 style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'dark' ? { background: '#252925', color: '#fff', borderColor: '#555' } : {}) }}
-                onClick={() => setTheme('dark')}
+                onClick={() => handleSetReaderTheme('dark')}
                 title="Nền tối"
               >
                 Tối
@@ -862,18 +980,38 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Thu phóng</span>
             <div style={{ display: 'flex', gap: 4 }}>
-              <button className="secondary" style={{ padding: '2px 8px' }} onClick={() => setScale(s => Math.max(0.7, s - 0.15))}>－</button>
+              <button className="secondary" style={{ padding: '2px 8px' }} onClick={handleZoomOut}>－</button>
               <span style={{ fontSize: 12, minWidth: 36, textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
-              <button className="secondary" style={{ padding: '2px 8px' }} onClick={() => setScale(s => Math.min(2.5, s + 0.15))}>＋</button>
+              <button className="secondary" style={{ padding: '2px 8px' }} onClick={handleZoomIn}>＋</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>Chế độ xem</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                className={`secondary ${fitMode === 'fit-width' ? 'activePill' : ''}`}
+                style={{ fontSize: 10, padding: '3px 6px', ...(fitMode === 'fit-width' ? { background: 'var(--deep)', color: 'white' } : {}) }}
+                onClick={() => { handleSetFitMode('fit-width'); setMobileMenuOpen(false); }}
+              >
+                ↔ Vừa ngang
+              </button>
+              <button
+                className={`secondary ${fitMode === 'fit-page' ? 'activePill' : ''}`}
+                style={{ fontSize: 10, padding: '3px 6px', ...(fitMode === 'fit-page' ? { background: 'var(--deep)', color: 'white' } : {}) }}
+                onClick={() => { handleSetFitMode('fit-page'); setMobileMenuOpen(false); }}
+              >
+                ↕ Vừa trang
+              </button>
             </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12, fontWeight: 700 }}>Nền đọc</span>
             <div style={{ display: 'flex', gap: 4 }}>
-              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('warm')}>Ấm</button>
-              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('white')}>Sáng</button>
-              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => setTheme('dark')}>Tối</button>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => handleSetReaderTheme('warm')}>Ấm</button>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => handleSetReaderTheme('white')}>Sáng</button>
+              <button className="secondary" style={{ fontSize: 10, padding: '3px 6px' }} onClick={() => handleSetReaderTheme('dark')}>Tối</button>
             </div>
           </div>
 
@@ -965,6 +1103,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                       if (el) pageElementsRef.current.set(p, el);
                       else pageElementsRef.current.delete(p);
                     }}
+                    onPageDimensions={handlePageDimensions}
                   />
                 );
               })}

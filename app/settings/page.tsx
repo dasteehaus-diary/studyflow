@@ -2,7 +2,7 @@
 
 import { useState, useEffect, ChangeEvent } from 'react';
 import { AppShell } from '@/components/AppShell';
-import { type HighlightColor } from '@/lib/db/local';
+import { localDB, type HighlightColor } from '@/lib/db/local';
 import { supportsOPFS, isPersistentStorageGranted, requestPersistentStorage } from '@/lib/storage/opfs';
 import {
   exportStudyFlowBackup,
@@ -11,9 +11,11 @@ import {
   type BackupEstimate
 } from '@/lib/data/backup';
 import { useSettings } from '@/lib/settings/settings-context';
+import { useAuth } from '@/lib/auth/auth-context';
 
 export default function SettingsPage() {
   const { settings, updateSettings, isLoaded } = useSettings();
+  const { user, isConfigured: isSupabaseConfigured } = useAuth();
 
   // Telegram local state for inputs & actions
   const [localChatId, setLocalChatId] = useState('');
@@ -31,6 +33,11 @@ export default function SettingsPage() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // System Diagnostics state (Requirement 12)
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [telegramServerConfigured, setTelegramServerConfigured] = useState<boolean | null>(null);
+  const [swActive, setSwActive] = useState<boolean>(false);
+
   // Sync initial settings to local state once loaded
   useEffect(() => {
     if (isLoaded) {
@@ -44,6 +51,22 @@ export default function SettingsPage() {
     setOpfsOk(supportsOPFS());
     isPersistentStorageGranted().then(setPersistent).catch(() => setPersistent(false));
     refreshBackupEstimate();
+
+    // Check sync queue
+    if (localDB) {
+      localDB.syncQueue.count().then(setPendingSyncCount).catch(() => setPendingSyncCount(0));
+    }
+
+    // Check server telegram token
+    fetch('/api/telegram/test')
+      .then(res => res.json())
+      .then(data => setTelegramServerConfigured(Boolean(data?.configured)))
+      .catch(() => setTelegramServerConfigured(false));
+
+    // Check Service Worker status
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      setSwActive(Boolean(navigator.serviceWorker.controller));
+    }
   }, []);
 
   const refreshBackupEstimate = async () => {
@@ -496,6 +519,74 @@ export default function SettingsPage() {
                 {backupMessage.text}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* System Diagnostics / Functional Status Panel (Requirement 12) */}
+        <section className="card" style={{ padding: '20px 24px' }}>
+          <h3 style={{ margin: '0 0 8px' }}>Trạng thái hệ thống</h3>
+          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
+            Thông tin chẩn đoán hoạt động thực tế của các dịch vụ và tầng lưu trữ.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Bộ nhớ cục bộ (OPFS)</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: opfsOk ? 'var(--olive)' : 'var(--terracotta)' }}>
+                {opfsOk ? '● Sẵn sàng (Ready)' : '○ Không hỗ trợ (Unsupported)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Lưu trữ vĩnh viễn</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: persistent ? 'var(--olive)' : 'var(--muted)' }}>
+                {persistent ? '● Đã cấp phép (Granted)' : '○ Chưa cấp phép (Not granted)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Supabase Cloud</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--olive)' : 'var(--muted)' }}>
+                {isSupabaseConfigured ? '● Đã kết nối (Connected)' : '○ Chỉ cục bộ (Local-only)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Tài khoản (Auth)</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: user ? 'var(--olive)' : 'var(--muted)' }}>
+                {user ? `● Đã đăng nhập (${user.email})` : '○ Chưa đăng nhập (Signed out)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Hàng đợi đồng bộ</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: pendingSyncCount > 0 ? 'var(--terracotta)' : 'var(--olive)' }}>
+                {pendingSyncCount} tác vụ đang chờ
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Bot Telegram</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (telegramServerConfigured && settings.telegramChatId.trim()) ? 'var(--olive)' : 'var(--terracotta)' }}>
+                {(telegramServerConfigured && settings.telegramChatId.trim())
+                  ? '● Đã kết nối (Connected)'
+                  : '○ Cần cấu hình (Configuration required)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>PWA / Service Worker</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: swActive ? 'var(--olive)' : 'var(--muted)' }}>
+                {swActive ? '● Đang hoạt động (Active)' : '○ Chưa kích hoạt (Inactive)'}
+              </div>
+            </div>
+
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Phiên bản ứng dụng</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: 'var(--ink)' }}>
+                StudyFlow v0.2.2 ({process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || '1177668'})
+              </div>
+            </div>
           </div>
         </section>
       </div>

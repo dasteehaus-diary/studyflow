@@ -15,6 +15,7 @@ interface PdfPageItemProps {
   onHighlightClick: (highlight: LocalHighlight, clientPos: { x: number; y: number }) => void;
   onPageVisible?: (pageNumber: number) => void;
   onRegisterElement?: (pageNumber: number, el: HTMLDivElement | null) => void;
+  onPageDimensions?: (width: number, height: number) => void;
 }
 
 const COLOR_MAP: Record<HighlightColor, string> = {
@@ -32,7 +33,8 @@ export function PdfPageItem({
   highlights,
   onTextSelected,
   onHighlightClick,
-  onRegisterElement
+  onRegisterElement,
+  onPageDimensions
 }: PdfPageItemProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +112,8 @@ export function PdfPageItem({
       onMouseUp={handleMouseUp}
       style={{
         position: 'relative',
-        width: 'min(820px, 92vw)',
+        width: 'fit-content',
+        maxWidth: '100%',
         minHeight: estimatedHeight,
         margin: '0 auto 24px',
         boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
@@ -124,6 +127,13 @@ export function PdfPageItem({
         scale={scale}
         renderAnnotationLayer={false}
         renderTextLayer={true}
+        onLoadSuccess={(pageData) => {
+          const w = pageData.originalWidth || (pageData.width / scale);
+          const h = pageData.originalHeight || (pageData.height / scale);
+          if (w > 0 && h > 0) {
+            onPageDimensions?.(w, h);
+          }
+        }}
         loading={
           <div style={{ height: estimatedHeight, display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>
             Đang tải trang {pageNumber}…

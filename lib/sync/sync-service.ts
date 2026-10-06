@@ -169,6 +169,199 @@ async function syncSingleItem(item: SyncQueueItem, userId: string) {
 }
 
 /**
+ * Pulls remote data from Supabase and hydrates local Dexie storage.
+ * Strictly adheres to Local-First principles:
+ * - If remote is empty, NEVER deletes or overwrites existing local data.
+ * - Uses resolveConflict() with timestamp checking. Local pending queue edits take precedence.
+ * - Restores document metadata (with OPFS relink requirement preserved).
+ */
+export async function pullAndHydrateFromRemote(userId: string): Promise<{
+  documentsPulled: number;
+  notesPulled: number;
+  highlightsPulled: number;
+  progressPulled: number;
+}> {
+  if (!localDB || !supabase) {
+    return { documentsPulled: 0, notesPulled: 0, highlightsPulled: 0, progressPulled: 0 };
+  }
+
+  let documentsPulled = 0;
+  let notesPulled = 0;
+  let highlightsPulled = 0;
+  let progressPulled = 0;
+
+  try {
+    // 1. Fetch remote documents
+    const { data: remoteDocs, error: docErr } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (!docErr && remoteDocs && remoteDocs.length > 0) {
+      for (const rDoc of remoteDocs) {
+        const localDoc = await localDB.documents.get(rDoc.id);
+        const hasPending = (await localDB.syncQueue
+          .where('entity').equals('document')
+          .filter(q => q.entityId === rDoc.id)
+          .count()) > 0;
+
+        const remoteFormatted = {
+          id: rDoc.id,
+          title: rDoc.title,
+          originalFileName: rDoc.title,
+          fileHash: rDoc.file_hash,
+          opfsPath: `documents/${rDoc.id}.pdf`,
+          totalPages: rDoc.total_pages ?? undefined,
+          tags: rDoc.tags || [],
+          status: rDoc.status || 'in_progress',
+          createdAt: rDoc.created_at,
+          updatedAt: rDoc.updated_at
+        };
+
+        if (!localDoc) {
+          await localDB.documents.add(remoteFormatted);
+          documentsPulled++;
+        } else {
+          const resolution = resolveConflict(localDoc, remoteFormatted, hasPending);
+          if (resolution.winner === 'remote') {
+            await localDB.documents.update(rDoc.id, remoteFormatted);
+            documentsPulled++;
+          }
+        }
+      }
+    }
+
+    // 2. Fetch remote progress
+    const { data: remoteProg, error: progErr } = await supabase
+      .from('document_progress')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (!progErr && remoteProg && remoteProg.length > 0) {
+      for (const rProg of remoteProg) {
+        const localProg = await localDB.progress.get(rProg.document_id);
+        const hasPending = (await localDB.syncQueue
+          .where('entity').equals('progress')
+          .filter(q => q.entityId === rProg.document_id)
+          .count()) > 0;
+
+        const loc = (rProg.current_locator as { page?: number; y?: number }) || { page: 1, y: 0 };
+        const remoteFormatted = {
+          documentId: rProg.document_id,
+          currentPage: loc.page || 1,
+          y: loc.y || 0,
+          visitedRanges: (rProg.visited_ranges as Array<[number, number]>) || [[1, loc.page || 1]],
+          completed: Boolean(rProg.completed_at),
+          completedAt: rProg.completed_at || undefined,
+          lastMeaningfulActivityAt: rProg.last_meaningful_activity_at || rProg.updated_at,
+          updatedAt: rProg.updated_at
+        };
+
+        if (!localProg) {
+          await localDB.progress.add(remoteFormatted);
+          progressPulled++;
+        } else {
+          const resolution = resolveConflict(localProg, remoteFormatted, hasPending);
+          if (resolution.winner === 'remote') {
+            await localDB.progress.put(remoteFormatted);
+            progressPulled++;
+          }
+        }
+      }
+    }
+
+    // 3. Fetch remote highlights
+    const { data: remoteHls, error: hlErr } = await supabase
+      .from('highlights')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (!hlErr && remoteHls && remoteHls.length > 0) {
+      for (const rHl of remoteHls) {
+        const localHl = await localDB.highlights.get(rHl.id);
+        const hasPending = (await localDB.syncQueue
+          .where('entity').equals('highlight')
+          .filter(q => q.entityId === rHl.id)
+          .count()) > 0;
+
+        const loc = (rHl.locator as { page?: number; y?: number }) || { page: 1, y: 0 };
+        const remoteFormatted = {
+          id: rHl.id,
+          documentId: rHl.document_id,
+          page: loc.page || 1,
+          locator: loc as { page: number; y: number },
+          quoteText: rHl.quote_text || '',
+          color: rHl.color || 'apricot',
+          rects: (rHl.rects as Array<{ x: number; y: number; width: number; height: number }>) || [],
+          createdAt: rHl.created_at,
+          updatedAt: rHl.updated_at
+        };
+
+        if (!localHl) {
+          await localDB.highlights.add(remoteFormatted);
+          highlightsPulled++;
+        } else {
+          const resolution = resolveConflict(localHl, remoteFormatted, hasPending);
+          if (resolution.winner === 'remote') {
+            await localDB.highlights.put(remoteFormatted);
+            highlightsPulled++;
+          }
+        }
+      }
+    }
+
+    // 4. Fetch remote notes
+    const { data: remoteNotes, error: noteErr } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (!noteErr && remoteNotes && remoteNotes.length > 0) {
+      for (const rNote of remoteNotes) {
+        const localNote = await localDB.notes.get(rNote.id);
+        const hasPending = (await localDB.syncQueue
+          .where('entity').equals('note')
+          .filter(q => q.entityId === rNote.id)
+          .count()) > 0;
+
+        const loc = (rNote.locator as { page?: number; y?: number }) || { page: 1, y: 0 };
+        const remoteFormatted = {
+          id: rNote.id,
+          documentId: rNote.document_id,
+          highlightId: rNote.highlight_id || undefined,
+          type: rNote.type || 'quick',
+          quoteText: rNote.quote_text || undefined,
+          noteText: rNote.note_text || '',
+          page: loc.page || 1,
+          y: loc.y || 0,
+          locator: loc as { page: number; y: number },
+          status: rNote.status || undefined,
+          resolutionText: rNote.resolution_text || undefined,
+          isActiveParking: Boolean(rNote.is_active_parking),
+          createdAt: rNote.created_at,
+          updatedAt: rNote.updated_at
+        };
+
+        if (!localNote) {
+          await localDB.notes.add(remoteFormatted);
+          notesPulled++;
+        } else {
+          const resolution = resolveConflict(localNote, remoteFormatted, hasPending);
+          if (resolution.winner === 'remote') {
+            await localDB.notes.put(remoteFormatted);
+            notesPulled++;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error during pullAndHydrateFromRemote:', err);
+  }
+
+  return { documentsPulled, notesPulled, highlightsPulled, progressPulled };
+}
+
+/**
  * Initializes automatic sync listeners on app startup.
  */
 export function initSyncListeners() {

@@ -39,10 +39,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Apply theme to DOM
+  // Apply theme to DOM & localStorage
   const applyTheme = useCallback((theme: 'warm' | 'light' | 'dark') => {
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme);
+      try {
+        localStorage.setItem('studyflow_theme', theme);
+      } catch {}
     }
   }, []);
 

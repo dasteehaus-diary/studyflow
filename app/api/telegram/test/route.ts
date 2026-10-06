@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 
+export async function GET() {
+  const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+  return NextResponse.json({ configured });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();

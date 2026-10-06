@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../supabase/client.ts';
-import { initSyncListeners, processSyncQueue } from '../sync/sync-service.ts';
+import { initSyncListeners, processSyncQueue, pullAndHydrateFromRemote } from '../sync/sync-service.ts';
 
 interface AuthContextType {
   user: User | null;
@@ -37,12 +37,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const handleSyncOnAuth = async (userId: string) => {
+      try {
+        await processSyncQueue();
+        await pullAndHydrateFromRemote(userId);
+      } catch (err) {
+        console.warn('Auth sync hydration failed:', err);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user) {
-        processSyncQueue().catch(() => {});
+        handleSyncOnAuth(session.user.id);
       }
     });
 
@@ -51,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user) {
-        processSyncQueue().catch(() => {});
+        handleSyncOnAuth(session.user.id);
       }
     });
 

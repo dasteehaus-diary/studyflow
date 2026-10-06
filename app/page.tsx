@@ -133,48 +133,13 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Documents Grid */}
-      <div className="libraryGrid">
-        {filteredDocuments.map(doc => (
-          <DocumentCard
-            key={doc.id}
-            document={doc}
-            progress={progressMap[doc.id] ?? null}
-            onRelinkRequest={(target) => {
-              setRelinkTarget(target);
-              setIsImportOpen(true);
-            }}
-          />
-        ))}
-
-        {/* Add Document Card CTA */}
-        <div
-          className="card docCard"
-          style={{
-            display: 'grid',
-            placeItems: 'center',
-            color: 'var(--muted)',
-            cursor: 'pointer',
-            borderStyle: 'dashed'
-          }}
-          onClick={() => {
-            setRelinkTarget(null);
-            setIsImportOpen(true);
-          }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>＋</div>
-            <strong>Thêm PDF</strong>
-            <div style={{ fontSize: 11, marginTop: 4 }}>Lưu trữ an toàn trong OPFS</div>
-          </div>
-        </div>
-      </div>
-
-      {filteredDocuments.length === 0 && documents.length === 0 && (
-        <div className="card emptyState" style={{ marginTop: 24, padding: 36, textAlign: 'center' }}>
-          <h3>Chưa có tài liệu nào trong thư viện</h3>
-          <p className="muted" style={{ maxWidth: 440, margin: '8px auto 20px' }}>
-            Bắt đầu bằng cách chọn một file PDF. StudyFlow sẽ ghi nhớ trang đọc, dòng suy nghĩ qua Parking Note, và mở quà B-Side khi hoàn thành.
+      {/* Empty State vs Documents Grid */}
+      {documents.length === 0 ? (
+        <div className="card emptyState" style={{ marginTop: 24, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📼</div>
+          <h3 style={{ margin: '0 0 8px' }}>Thư viện của bạn đang trống</h3>
+          <p className="muted" style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.5 }}>
+            Chọn PDF đầu tiên để StudyFlow ghi nhớ mạch đọc.
           </p>
           <button
             className="primary"
@@ -183,9 +148,53 @@ export default function HomePage() {
               setIsImportOpen(true);
             }}
           >
-            Chọn file PDF đầu tiên
+            ＋ Thêm PDF
           </button>
         </div>
+      ) : (
+        <>
+          <div className="libraryGrid">
+            {filteredDocuments.map(doc => (
+              <DocumentCard
+                key={doc.id}
+                document={doc}
+                progress={progressMap[doc.id] ?? null}
+                onRelinkRequest={(target) => {
+                  setRelinkTarget(target);
+                  setIsImportOpen(true);
+                }}
+              />
+            ))}
+
+            {/* Add Document Card CTA */}
+            <div
+              className="card docCard"
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--muted)',
+                cursor: 'pointer',
+                borderStyle: 'dashed'
+              }}
+              onClick={() => {
+                setRelinkTarget(null);
+                setIsImportOpen(true);
+              }}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>＋</div>
+                <strong>Thêm PDF</strong>
+                <div style={{ fontSize: 11, marginTop: 4 }}>Lưu trữ an toàn trong OPFS</div>
+              </div>
+            </div>
+          </div>
+
+          {filteredDocuments.length === 0 && (
+            <div className="card" style={{ marginTop: 24, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
+              Không có tài liệu nào trong danh mục này.
+            </div>
+          )}
+        </>
       )}
 
       {/* Dev spike link - hidden on production (Requirement 11) */}

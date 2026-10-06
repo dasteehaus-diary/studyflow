@@ -7,7 +7,9 @@ import { SettingsProvider } from '@/lib/settings/settings-context';
 export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(console.error);
     }
   }, []);
 

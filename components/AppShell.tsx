@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AuthButton } from './AuthButton';
 
 const nav = [
-  ['▣', 'Kệ sách', '/'],
+  ['◫', 'Kệ sách', '/'],
   ['✎', 'Ghi chép', '/notebook'],
   ['▤', 'Kho B-Side', '/vault'],
   ['⚙', 'Cài đặt', '/settings']
@@ -18,7 +18,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
         <div className="brand">
-          <Link href="/">StudyFlow</Link>
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <span>📼</span>
+            <span>StudyFlow</span>
+          </Link>
         </div>
         <nav className="nav">
           {nav.map(([icon, label, href]) => {
@@ -29,7 +32,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 className={isActive ? 'navActive' : ''}
               >
-                {icon} &nbsp; {label}
+                <span style={{ fontSize: 14 }}>{icon}</span>
+                <span>{label}</span>
               </Link>
             );
           })}

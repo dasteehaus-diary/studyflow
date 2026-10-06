@@ -1,4 +1,4 @@
-const CACHE_NAME = 'studyflow-v1';
+const CACHE_NAME = 'studyflow-v0.2.2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -28,6 +28,9 @@ self.addEventListener('fetch', (event) => {
   // Only cache GET requests, skip chrome-extension or external cross-origin APIs
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // Skip API routes and dynamic Next.js data
+  if (url.pathname.startsWith('/api/')) return;
 
   // Network-first for navigation, cache-first for static assets
   if (event.request.mode === 'navigate') {

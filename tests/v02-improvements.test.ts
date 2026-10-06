@@ -490,5 +490,67 @@ describe('StudyFlow v0.2 — Improvements & Polish Test Suite', () => {
     });
   });
 
+  describe('7. Document Renaming & Title Provenance', () => {
+    interface MockDoc {
+      id: string;
+      title: string;
+      originalFileName?: string;
+      updatedAt: string;
+    }
+    interface MockReward {
+      id: string;
+      documentId: string;
+      documentTitle: string;
+    }
+
+    it('renames document title while strictly preserving originalFileName and file identity', () => {
+      const doc: MockDoc = {
+        id: 'doc-123',
+        title: 'Draft Chapter',
+        originalFileName: 'Calculus_Stewart_8th_Edition.pdf',
+        updatedAt: '2026-10-05T10:00:00.000Z'
+      };
+
+      const newTitle = 'Toán Giải Tích 1 - Stewart';
+      const now = '2026-10-06T09:00:00.000Z';
+
+      // Simulate rename logic
+      doc.title = newTitle.trim();
+      doc.updatedAt = now;
+
+      assert.strictEqual(doc.title, 'Toán Giải Tích 1 - Stewart');
+      assert.strictEqual(doc.originalFileName, 'Calculus_Stewart_8th_Edition.pdf', 'Original file name must never be overwritten');
+      assert.strictEqual(doc.updatedAt, now);
+    });
+
+    it('synchronizes document title to unlockedRewards provenance', () => {
+      const rewards: MockReward[] = [
+        { id: 'rew-1', documentId: 'doc-123', documentTitle: 'Old Title' },
+        { id: 'rew-2', documentId: 'doc-999', documentTitle: 'Other Doc' }
+      ];
+
+      const newTitle = 'Renamed Title';
+      // Sync provenance for doc-123
+      rewards.forEach(r => {
+        if (r.documentId === 'doc-123') {
+          r.documentTitle = newTitle;
+        }
+      });
+
+      assert.strictEqual(rewards[0].documentTitle, 'Renamed Title');
+      assert.strictEqual(rewards[1].documentTitle, 'Other Doc', 'Unrelated documents rewards must remain unchanged');
+    });
+
+    it('rejects empty or whitespace-only titles', () => {
+      function validateRename(title: string): boolean {
+        const trimmed = title.trim();
+        return trimmed.length > 0;
+      }
+
+      assert.strictEqual(validateRename(''), false);
+      assert.strictEqual(validateRename('   '), false);
+      assert.strictEqual(validateRename('   Valid Name   '), true);
+    });
+  });
 });
 

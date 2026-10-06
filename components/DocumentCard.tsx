@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CassetteProgress } from './CassetteProgress';
-import type { LocalDocument, LocalProgress } from '@/lib/db/local';
-import { localDB } from '@/lib/db/local';
+import { localDB, renameDocument, type LocalDocument, type LocalProgress } from '@/lib/db/local';
 import { cassetteProgress } from '@/lib/progress/cassette';
 import { pdfExistsInOPFS, removePdfFromOPFS } from '@/lib/storage/opfs';
 import { enqueueSync } from '@/lib/sync/sync-service';
@@ -26,6 +25,10 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
   const [tagsInput, setTagsInput] = useState(document.tags.join(', '));
 
   useEffect(() => {
+    setNewTitle(document.title);
+  }, [document.title]);
+
+  useEffect(() => {
     let active = true;
     pdfExistsInOPFS(document.id).then((exists) => {
       if (active) setFileExists(exists);
@@ -42,10 +45,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
 
   const handleRename = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!localDB || !newTitle.trim()) return;
-    const now = new Date().toISOString();
-    await localDB.documents.update(document.id, { title: newTitle.trim(), updatedAt: now });
-    await enqueueSync('document', document.id, 'upsert', { ...document, title: newTitle.trim(), updatedAt: now });
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    await renameDocument(document.id, trimmed);
     setIsRenaming(false);
     onChanged?.();
   };
@@ -213,7 +215,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
             overflow: 'hidden'
           }}
         >
-          {document.thumbnail && (
+          {document.thumbnail ? (
             <img
               src={document.thumbnail}
               alt={document.title}
@@ -222,21 +224,24 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 inset: 0,
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
-                opacity: 0.82
+                objectFit: 'cover'
               }}
             />
+          ) : (
+            <span style={{
+              fontSize: 13,
+              color: 'white',
+              lineHeight: 1.3,
+              position: 'relative',
+              zIndex: 2,
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}>
+              {document.title}
+            </span>
           )}
-          <span style={{
-            fontSize: 13,
-            color: 'white',
-            lineHeight: 1.3,
-            position: 'relative',
-            zIndex: 2,
-            textShadow: document.thumbnail ? '0 1px 4px rgba(0,0,0,0.85)' : undefined
-          }}>
-            {document.title}
-          </span>
           {document.status === 'completed' && (
             <span
               style={{
@@ -258,7 +263,20 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
         </div>
 
         <div className="docMeta">
-          <strong style={{ fontSize: 14, display: 'block', marginTop: 8 }}>{document.title}</strong>
+          <strong
+            style={{
+              fontSize: 14,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+              marginTop: 8
+            }}
+            title={document.title}
+          >
+            {document.title}
+          </strong>
 
           {/* Tags */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -316,12 +334,16 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') setIsRenaming(false);
+                }}
+                placeholder="Nhập tên hiển thị mới"
                 autoFocus
-                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)' }}
+                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
               />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" className="secondary" onClick={() => setIsRenaming(false)}>Hủy</button>
-                <button type="submit" className="primary">Lưu</button>
+                <button type="button" className="secondary" onClick={() => setIsRenaming(false)}>Hủy (Esc)</button>
+                <button type="submit" className="primary" disabled={!newTitle.trim()}>Lưu (Enter)</button>
               </div>
             </form>
           </div>

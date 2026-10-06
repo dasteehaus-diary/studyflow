@@ -25,6 +25,9 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
   const [hashProgress, setHashProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [duplicateDoc, setDuplicateDoc] = useState<LocalDocument | null>(null);
+  const [importedDocId, setImportedDocId] = useState<string | null>(null);
+  const [customTitle, setCustomTitle] = useState('');
+  const [originalFileName, setOriginalFileName] = useState('');
 
   if (!isOpen) return null;
 
@@ -49,6 +52,7 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
     setStatus('hashing');
     setHashProgress(0);
     setErrorMessage('');
+    setOriginalFileName(file.name);
 
     try {
       const fileHash = await sha256FileInWorker(file, (p) => setHashProgress(p));
@@ -66,6 +70,7 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
         await savePdfToOPFS(relinkTarget.id, file);
         await localDB.documents.update(relinkTarget.id, {
           opfsPath: `documents/${relinkTarget.id}.pdf`,
+          originalFileName: file.name,
           updatedAt: new Date().toISOString()
         });
         setStatus('relink_success');
@@ -82,6 +87,7 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
           await savePdfToOPFS(existing.id, file);
           await localDB.documents.update(existing.id, {
             opfsPath: `documents/${existing.id}.pdf`,
+            originalFileName: file.name,
             updatedAt: new Date().toISOString()
           });
           setStatus('relink_success');
@@ -99,6 +105,8 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
       const opfsPath = await savePdfToOPFS(id, file);
       const now = new Date().toISOString();
       const title = file.name.replace(/\.pdf$/i, '');
+      setCustomTitle(title);
+      setImportedDocId(id);
 
       // Generate local thumbnail and totalPages using lightweight Blob URL
       let thumbnail: string | undefined;
@@ -130,6 +138,7 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
       const newDoc: LocalDocument = {
         id,
         title,
+        originalFileName: file.name,
         fileHash,
         opfsPath,
         totalPages,
@@ -160,11 +169,26 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
       await enqueueSync('progress', id, 'upsert', initialProgress);
 
       setStatus('success');
-      onImportComplete?.(id);
     } catch (err) {
       console.error(err);
       setStatus('error');
       setErrorMessage(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleFinishImport(shouldOpenReader = true) {
+    if (importedDocId && customTitle.trim() && localDB) {
+      const trimmed = customTitle.trim();
+      const doc = await localDB.documents.get(importedDocId);
+      if (doc && doc.title !== trimmed) {
+        const now = new Date().toISOString();
+        await localDB.documents.update(importedDocId, { title: trimmed, updatedAt: now });
+        await enqueueSync('document', importedDocId, 'upsert', { ...doc, title: trimmed, updatedAt: now });
+      }
+    }
+    onClose();
+    if (shouldOpenReader && importedDocId) {
+      onImportComplete?.(importedDocId);
     }
   }
 
@@ -277,12 +301,43 @@ export function ImportPdfModal({ isOpen, onClose, relinkTarget, onImportComplete
 
         {status === 'success' && (
           <div>
-            <p style={{ color: 'var(--olive)', fontWeight: 600 }}>
+            <p style={{ color: 'var(--olive)', fontWeight: 600, margin: '0 0 14px' }}>
               ✓ Đã thêm tài liệu thành công!
             </p>
-            <button className="primary" onClick={onClose} style={{ marginTop: 16 }}>
-              Mở sách
-            </button>
+            <div style={{ display: 'grid', gap: 6, marginBottom: 18 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                Tên hiển thị trong StudyFlow (tùy chọn chỉnh sửa):
+              </label>
+              <input
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="Nhập tên hiển thị…"
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line)',
+                  background: 'var(--panel)',
+                  color: 'var(--ink)',
+                  fontSize: 14
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleFinishImport(true);
+                  }
+                }}
+              />
+              <span className="muted" style={{ fontSize: 11 }}>
+                File gốc: {originalFileName}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="primary" onClick={() => handleFinishImport(true)}>
+                Mở sách →
+              </button>
+              <button className="secondary" onClick={() => handleFinishImport(false)}>
+                Lưu &amp; Đóng
+              </button>
+            </div>
           </div>
         )}
 

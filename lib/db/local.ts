@@ -5,6 +5,7 @@ export type HighlightColor = 'apricot' | 'rose' | 'olive' | 'blue';
 export type LocalDocument = {
   id: string;
   title: string;
+  originalFileName?: string;
   fileHash: string;
   opfsPath: string;
   totalPages?: number;
@@ -136,7 +137,54 @@ export class StudyFlowDB extends Dexie {
         if (!doc.createdAt) doc.createdAt = doc.updatedAt || new Date().toISOString();
       });
     });
+
+    // Version 3 (Support explicit originalFileName vs display title)
+    this.version(3).stores({
+      documents: 'id, fileHash, status, updatedAt',
+      progress: 'documentId, updatedAt, lastMeaningfulActivityAt',
+      highlights: 'id, documentId, page, updatedAt',
+      notes: 'id, documentId, highlightId, type, status, isActiveParking, updatedAt',
+      readingSessions: 'id, documentId, startedAt, updatedAt',
+      unlockedRewards: 'id, documentId, rewardId, unlockedAt',
+      settings: 'key',
+      syncQueue: '++id, entity, entityId, queuedAt'
+    }).upgrade(tx => {
+      return tx.table('documents').toCollection().modify(doc => {
+        if (!doc.originalFileName) {
+          doc.originalFileName = doc.title || 'document.pdf';
+        }
+      });
+    });
   }
 }
 
 export const localDB = typeof window === 'undefined' ? null : new StudyFlowDB();
+
+/**
+ * Renames a document safely without altering file hash, PDF bytes, or OPFS mapping.
+ * Updates local document, synchronizes reward provenance, and enqueues sync.
+ */
+export async function renameDocument(documentId: string, newTitle: string): Promise<boolean> {
+  if (!localDB) return false;
+  const trimmed = newTitle.trim();
+  if (!trimmed) return false;
+
+  const doc = await localDB.documents.get(documentId);
+  if (!doc) return false;
+
+  const now = new Date().toISOString();
+  await localDB.documents.update(documentId, { title: trimmed, updatedAt: now });
+
+  // Keep provenance in unlockedRewards synchronized
+  await localDB.unlockedRewards.where('documentId').equals(documentId).modify({ documentTitle: trimmed });
+
+  // Enqueue sync for document upsert
+  const { enqueueSync } = await import('../sync/sync-service');
+  await enqueueSync('document', documentId, 'upsert', {
+    ...doc,
+    title: trimmed,
+    updatedAt: now
+  });
+
+  return true;
+}
