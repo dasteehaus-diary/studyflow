@@ -8,6 +8,14 @@ import { readingPositionPercent } from '@/lib/progress/cassette';
 import { pdfExistsInOPFS, removePdfFromOPFS } from '@/lib/storage/opfs';
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { formatRelativeTime } from '@/lib/utils/time';
+import {
+  IconMore,
+  IconPencil,
+  IconTag,
+  IconRotate,
+  IconArchive,
+  IconTrash
+} from '@/components/icons/BrandIcons';
 
 interface DocumentCardProps {
   document: LocalDocument;
@@ -127,7 +135,13 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
         <button
           className="secondary"
-          style={{ padding: '2px 8px', borderRadius: 8, fontSize: 13 }}
+          style={{
+            padding: '4px 7px',
+            borderRadius: 8,
+            fontSize: 12,
+            background: 'var(--panel)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+          }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -135,7 +149,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           }}
           aria-label="Tùy chọn tài liệu"
         >
-          •••
+          <IconMore size={16} />
         </button>
 
         {menuOpen && (
@@ -147,49 +161,54 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
               background: 'var(--panel)',
               border: '1px solid var(--line)',
               borderRadius: 12,
-              boxShadow: 'var(--shadow)',
+              boxShadow: 'var(--shadow-hover)',
               padding: 6,
               display: 'grid',
-              gap: 4,
-              minWidth: 160,
+              gap: 2,
+              minWidth: 170,
               zIndex: 30
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               className="secondary"
-              style={{ textAlign: 'left', border: 0, fontSize: 12, padding: '6px 10px' }}
+              style={{ textAlign: 'left', border: 0, fontSize: 13, padding: '7px 10px', justifyContent: 'flex-start' }}
               onClick={() => { setMenuOpen(false); setIsRenaming(true); }}
             >
-              ✏️ Đổi tên
+              <IconPencil size={15} />
+              <span>Đổi tên</span>
             </button>
             <button
               className="secondary"
-              style={{ textAlign: 'left', border: 0, fontSize: 12, padding: '6px 10px' }}
+              style={{ textAlign: 'left', border: 0, fontSize: 13, padding: '7px 10px', justifyContent: 'flex-start' }}
               onClick={() => { setMenuOpen(false); setIsManagingTags(true); }}
             >
-              🏷️ Quản lý tags
+              <IconTag size={15} />
+              <span>Quản lý tags</span>
             </button>
             <button
               className="secondary"
-              style={{ textAlign: 'left', border: 0, fontSize: 12, padding: '6px 10px' }}
+              style={{ textAlign: 'left', border: 0, fontSize: 13, padding: '7px 10px', justifyContent: 'flex-start' }}
               onClick={handleRestart}
             >
-              🔄 Khởi động lại
+              <IconRotate size={15} />
+              <span>Khởi động lại</span>
             </button>
             <button
               className="secondary"
-              style={{ textAlign: 'left', border: 0, fontSize: 12, padding: '6px 10px' }}
+              style={{ textAlign: 'left', border: 0, fontSize: 13, padding: '7px 10px', justifyContent: 'flex-start' }}
               onClick={handleToggleArchive}
             >
-              {document.status === 'archived' ? '📂 Mở lưu trữ' : '📦 Lưu trữ (Archive)'}
+              <IconArchive size={15} />
+              <span>{document.status === 'archived' ? 'Mở lưu trữ' : 'Lưu trữ (Archive)'}</span>
             </button>
             <button
               className="secondary danger"
-              style={{ textAlign: 'left', border: 0, fontSize: 12, padding: '6px 10px' }}
+              style={{ textAlign: 'left', border: 0, fontSize: 13, padding: '7px 10px', justifyContent: 'flex-start' }}
               onClick={handleDelete}
             >
-              🗑️ Xóa tài liệu
+              <IconTrash size={15} />
+              <span>Xóa tài liệu</span>
             </button>
           </div>
         )}
@@ -205,14 +224,16 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
         }}
         style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', flex: 1 }}
       >
+        {/* Cover thumbnail */}
         <div
           className="docThumb"
           style={{
             background: document.thumbnail ? '#2c2a26' : (document.status === 'completed'
-              ? 'linear-gradient(135deg, var(--olive-cream), #9e965f)'
+              ? 'linear-gradient(135deg, var(--sage), #3c5443)'
               : 'linear-gradient(135deg, var(--dusty-blue), #697a8c)'),
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: 'inset 2px 0 5px rgba(0,0,0,0.15), 0 3px 10px rgba(0,0,0,0.06)'
           }}
         >
           {document.thumbnail ? (
@@ -231,30 +252,33 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
             <span style={{
               fontSize: 13,
               color: 'white',
-              lineHeight: 1.3,
+              lineHeight: 1.35,
               position: 'relative',
               zIndex: 2,
               display: '-webkit-box',
               WebkitLineClamp: 3,
               WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              fontWeight: 700
             }}>
               {document.title}
             </span>
           )}
+
           {document.status === 'completed' && (
             <span
               style={{
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'rgba(0,0,0,0.6)',
+                background: 'rgba(34, 48, 38, 0.85)',
                 color: 'white',
-                padding: '2px 6px',
-                borderRadius: 6,
+                padding: '3px 8px',
+                borderRadius: 8,
                 fontSize: 10,
                 fontWeight: 700,
-                zIndex: 2
+                zIndex: 2,
+                backdropFilter: 'blur(4px)'
               }}
             >
               ✓ Đã xong
@@ -262,16 +286,18 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           )}
         </div>
 
+        {/* Metadata */}
         <div className="docMeta">
           <strong
             style={{
               fontSize: 14,
+              lineHeight: 1.35,
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
               wordBreak: 'break-word',
-              marginTop: 8
+              marginTop: 10
             }}
             title={document.title}
           >
@@ -279,10 +305,15 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           </strong>
 
           {/* Tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            {document.tags.map(t => (
-              <span key={t} className="pill" style={{ fontSize: 10, padding: '2px 6px' }}>{t}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, minHeight: 20 }}>
+            {document.tags.slice(0, 3).map(t => (
+              <span key={t} className="pill" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6 }}>
+                {t}
+              </span>
             ))}
+            {document.tags.length > 3 && (
+              <span className="muted" style={{ fontSize: 11 }}>+{document.tags.length - 3}</span>
+            )}
           </div>
 
           {fileExists === false && (
@@ -304,9 +335,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
             </div>
           )}
 
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 10 }}>
             <CassetteProgress value={pct} variant="mini" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>
               <span>Trang {currentPage} / {totalPages || '—'}</span>
               <span>{lastActive}</span>
             </div>
@@ -320,7 +351,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.4)',
+            background: 'rgba(0,0,0,0.45)',
             zIndex: 9999,
             display: 'grid',
             placeItems: 'center',
@@ -328,9 +359,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           }}
           onClick={() => setIsRenaming(false)}
         >
-          <div className="card" style={{ padding: 20, width: 'min(360px, 100%)' }} onClick={e => e.stopPropagation()}>
-            <h4>Đổi tên tài liệu</h4>
-            <form onSubmit={handleRename} style={{ display: 'grid', gap: 10 }}>
+          <div className="card" style={{ padding: 22, width: 'min(380px, 100%)' }} onClick={e => e.stopPropagation()}>
+            <h4 style={{ margin: '0 0 10px' }}>Đổi tên tài liệu</h4>
+            <form onSubmit={handleRename} style={{ display: 'grid', gap: 12 }}>
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
@@ -339,7 +370,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 }}
                 placeholder="Nhập tên hiển thị mới"
                 autoFocus
-                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+                style={{ padding: '9px 12px', borderRadius: 10 }}
               />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button type="button" className="secondary" onClick={() => setIsRenaming(false)}>Hủy (Esc)</button>
@@ -356,7 +387,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.4)',
+            background: 'rgba(0,0,0,0.45)',
             zIndex: 9999,
             display: 'grid',
             placeItems: 'center',
@@ -364,16 +395,16 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           }}
           onClick={() => setIsManagingTags(false)}
         >
-          <div className="card" style={{ padding: 20, width: 'min(360px, 100%)' }} onClick={e => e.stopPropagation()}>
-            <h4>Quản lý tags</h4>
-            <p className="muted" style={{ fontSize: 12 }}>Nhập các tag cách nhau bởi dấu phẩy (vd: Deutsch, Psychology)</p>
-            <form onSubmit={handleSaveTags} style={{ display: 'grid', gap: 10 }}>
+          <div className="card" style={{ padding: 22, width: 'min(380px, 100%)' }} onClick={e => e.stopPropagation()}>
+            <h4 style={{ margin: '0 0 6px' }}>Quản lý tags</h4>
+            <p className="muted" style={{ fontSize: 12, margin: '0 0 12px' }}>Nhập các tag cách nhau bởi dấu phẩy (vd: Khoa học, Triết học, Tâm lý)</p>
+            <form onSubmit={handleSaveTags} style={{ display: 'grid', gap: 12 }}>
               <input
                 value={tagsInput}
                 onChange={e => setTagsInput(e.target.value)}
-                placeholder="Deutsch, Work, Science"
+                placeholder="Khoa học, Tâm lý học, Lập trình"
                 autoFocus
-                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)' }}
+                style={{ padding: '9px 12px', borderRadius: 10 }}
               />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button type="button" className="secondary" onClick={() => setIsManagingTags(false)}>Hủy</button>

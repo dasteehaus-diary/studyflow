@@ -13,6 +13,15 @@ import { mergePagesIntoRanges, readingPositionPercent } from '@/lib/progress/cas
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { useSettings } from '@/lib/settings/settings-context';
 import { CassetteProgress } from '@/components/CassetteProgress';
+import {
+  IconMore,
+  IconZoomIn,
+  IconZoomOut,
+  IconFocus,
+  IconParkingNote,
+  IconNotebook,
+  IconArrowLeft
+} from '@/components/icons/BrandIcons';
 import { PdfPageItem } from './PdfPageItem';
 import { HighlightToolbar } from './HighlightToolbar';
 import { HighlightNotePopover } from './HighlightNotePopover';
@@ -72,6 +81,9 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
   // Highlight click popup state
   const [activeHighlightPopup, setActiveHighlightPopup] = useState<{ highlight: LocalHighlight; pos: { x: number; y: number } } | null>(null);
+
+  // Reader top options menu (Theme, Fit mode, Shortcuts)
+  const [readerMenuOpen, setReaderMenuOpen] = useState(false);
 
   // External composer trigger for notes panel (Requirement 4)
   const [initialComposerQuote, setInitialComposerQuote] = useState<string | null>(null);
@@ -1104,74 +1116,28 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               <span>/ {totalPages}</span>
             </div>
 
-            {/* Zoom Controls */}
+            {/* Compact Zoom Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 6 }}>
               <button
                 className="secondary"
-                style={{ fontSize: 12, padding: '4px 8px' }}
+                style={{ fontSize: 12, padding: '4px 6px', display: 'flex' }}
                 onClick={handleZoomOut}
                 title="Thu nhỏ (-)"
+                aria-label="Thu nhỏ"
               >
-                －
+                <IconZoomOut size={14} />
               </button>
               <span style={{ fontSize: 11, minWidth: 36, textAlign: 'center', color: 'var(--muted)' }}>
                 {Math.round(scale * 100)}%
               </span>
               <button
                 className="secondary"
-                style={{ fontSize: 12, padding: '4px 8px' }}
+                style={{ fontSize: 12, padding: '4px 6px', display: 'flex' }}
                 onClick={handleZoomIn}
                 title="Phóng to (+)"
+                aria-label="Phóng to"
               >
-                ＋
-              </button>
-            </div>
-
-            {/* Fit Mode Toggles */}
-            <div style={{ display: 'flex', gap: 2, marginLeft: 6 }}>
-              <button
-                className={`secondary ${fitMode === 'fit-width' ? 'activePill' : ''}`}
-                style={{ fontSize: 11, padding: '3px 7px', ...(fitMode === 'fit-width' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : {}) }}
-                onClick={() => handleSetFitMode('fit-width')}
-                title="Vừa chiều ngang (Fit Width)"
-              >
-                ↔ Vừa ngang
-              </button>
-              <button
-                className={`secondary ${fitMode === 'fit-page' ? 'activePill' : ''}`}
-                style={{ fontSize: 11, padding: '3px 7px', ...(fitMode === 'fit-page' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : {}) }}
-                onClick={() => handleSetFitMode('fit-page')}
-                title="Toàn trang (Fit Page)"
-              >
-                ↕ Vừa trang
-              </button>
-            </div>
-
-            {/* Reading Background Toggles */}
-            <div style={{ display: 'flex', gap: 4, marginLeft: 6 }}>
-              <button
-                className={`secondary ${theme === 'warm' ? 'activePill' : ''}`}
-                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'warm' ? { background: '#ded6c5', borderColor: '#bbb' } : {}) }}
-                onClick={() => handleSetReaderTheme('warm')}
-                title="Nền sách giấy ấm"
-              >
-                Ấm
-              </button>
-              <button
-                className={`secondary ${theme === 'white' ? 'activePill' : ''}`}
-                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'white' ? { background: '#ffffff', borderColor: '#bbb' } : {}) }}
-                onClick={() => handleSetReaderTheme('white')}
-                title="Nền trắng sáng"
-              >
-                Sáng
-              </button>
-              <button
-                className={`secondary ${theme === 'dark' ? 'activePill' : ''}`}
-                style={{ fontSize: 11, padding: '3px 7px', ...(theme === 'dark' ? { background: '#252925', color: '#fff', borderColor: '#555' } : {}) }}
-                onClick={() => handleSetReaderTheme('dark')}
-                title="Nền tối"
-              >
-                Tối
+                <IconZoomIn size={14} />
               </button>
             </div>
 
@@ -1184,17 +1150,18 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                 alignItems: 'center',
                 gap: 6,
                 padding: '6px 12px',
-                marginLeft: 8,
+                marginLeft: 4,
                 ...(notesOpen ? { background: 'var(--deep)', color: 'white' } : {})
               }}
               onClick={() => setNotesOpen(!notesOpen)}
               title="Mở ghi chú (N)"
             >
-              <span>✎ Ghi chú</span>
+              <IconNotebook size={15} />
+              <span>Ghi chú</span>
               {notes.length > 0 && (
                 <span
                   style={{
-                    background: notesOpen ? 'white' : 'var(--deep)',
+                    background: notesOpen ? 'white' : 'var(--terracotta)',
                     color: notesOpen ? 'var(--deep)' : 'white',
                     borderRadius: 999,
                     fontSize: 10,
@@ -1210,22 +1177,121 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             {/* Focus Mode button */}
             <button
               className="secondary"
-              style={{ fontSize: 13, padding: '6px 10px' }}
+              style={{ fontSize: 13, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 5 }}
               onClick={() => setFocusMode(true)}
               title="Chế độ tập trung (F)"
             >
-              ⛶ Focus
+              <IconFocus size={15} />
+              <span>Focus</span>
             </button>
 
-            {/* Shortcuts help button */}
-            <button
-              className="secondary"
-              style={{ fontSize: 12, padding: '6px 8px' }}
-              onClick={() => setShortcutsModalOpen(true)}
-              title="Phím tắt (?)"
-            >
-              ?
-            </button>
+            {/* Options Dropdown (⋯) Menu (Section 7) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                className="secondary"
+                style={{
+                  fontSize: 13,
+                  padding: '6px 8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  ...(readerMenuOpen ? { background: 'var(--card-subtle)' } : {})
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReaderMenuOpen(prev => !prev);
+                }}
+                title="Tùy chọn hiển thị (⋯)"
+                aria-label="Tùy chọn hiển thị"
+              >
+                <IconMore size={16} />
+              </button>
+
+              {readerMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: 6,
+                    background: 'var(--panel)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 14,
+                    boxShadow: 'var(--shadow-hover)',
+                    padding: 12,
+                    display: 'grid',
+                    gap: 12,
+                    minWidth: 210,
+                    zIndex: 100
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Reading theme */}
+                  <div>
+                    <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>
+                      Nền đọc sách
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
+                      <button
+                        className={`secondary ${theme === 'warm' ? 'activePill' : ''}`}
+                        style={{ fontSize: 11, padding: '4px', ...(theme === 'warm' ? { background: '#ded6c5', color: '#222' } : {}) }}
+                        onClick={() => handleSetReaderTheme('warm')}
+                      >
+                        Ấm
+                      </button>
+                      <button
+                        className={`secondary ${theme === 'white' ? 'activePill' : ''}`}
+                        style={{ fontSize: 11, padding: '4px', ...(theme === 'white' ? { background: '#ffffff', color: '#222' } : {}) }}
+                        onClick={() => handleSetReaderTheme('white')}
+                      >
+                        Sáng
+                      </button>
+                      <button
+                        className={`secondary ${theme === 'dark' ? 'activePill' : ''}`}
+                        style={{ fontSize: 11, padding: '4px', ...(theme === 'dark' ? { background: '#252925', color: '#fff' } : {}) }}
+                        onClick={() => handleSetReaderTheme('dark')}
+                      >
+                        Tối
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Fit mode */}
+                  <div>
+                    <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>
+                      Khổ hiển thị
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      <button
+                        className={`secondary ${fitMode === 'fit-width' ? 'activePill' : ''}`}
+                        style={{ fontSize: 11, padding: '5px', ...(fitMode === 'fit-width' ? { background: 'var(--deep)', color: '#fff' } : {}) }}
+                        onClick={() => handleSetFitMode('fit-width')}
+                      >
+                        ↔ Vừa ngang
+                      </button>
+                      <button
+                        className={`secondary ${fitMode === 'fit-page' ? 'activePill' : ''}`}
+                        style={{ fontSize: 11, padding: '5px', ...(fitMode === 'fit-page' ? { background: 'var(--deep)', color: '#fff' } : {}) }}
+                        onClick={() => handleSetFitMode('fit-page')}
+                      >
+                        ↕ Vừa trang
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Shortcuts */}
+                  <button
+                    className="secondary"
+                    style={{ fontSize: 12, padding: '7px 10px', justifyContent: 'flex-start', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--card-subtle)' }}
+                    onClick={() => {
+                      setReaderMenuOpen(false);
+                      setShortcutsModalOpen(true);
+                    }}
+                  >
+                    ⌨ Phím tắt bàn phím (?)
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile compact menu button */}
@@ -1521,13 +1587,14 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               padding: '6px 12px',
               display: 'flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 6,
               whiteSpace: 'nowrap'
             }}
             onClick={() => setQuickParkOpen(prev => !prev)}
             title="Ghim suy nghĩ nhanh (P)"
           >
-            📌 Park
+            <IconParkingNote size={15} />
+            <span>Park</span>
           </button>
 
           {/* Cassette Progress Center (Hero Analog Widget) */}

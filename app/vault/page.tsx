@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { liveQuery } from 'dexie';
 import { AppShell } from '@/components/AppShell';
 import { localDB, type LocalUnlockedReward, type LocalDocument } from '@/lib/db/local';
 import { playRewardSound } from '@/lib/rewards/audio-synth';
 import { formatRelativeTime } from '@/lib/utils/time';
+import { IconBSide, IconCassetteLogo, IconClose, StickyNote } from '@/components/icons/BrandIcons';
 
-export default function VaultPage() {
+type VaultFilter = 'all' | 'unlocked' | 'mystery';
+
+export function VaultPage() {
   const [unlockedRewards, setUnlockedRewards] = useState<LocalUnlockedReward[]>([]);
   const [documentsMap, setDocumentsMap] = useState<Record<string, LocalDocument>>({});
   const [activeModalReward, setActiveModalReward] = useState<LocalUnlockedReward | null>(null);
+  const [filter, setFilter] = useState<VaultFilter>('all');
 
   useEffect(() => {
     const db = localDB;
@@ -37,81 +41,188 @@ export default function VaultPage() {
 
   const activePayload = activeModalReward?.payload as Record<string, unknown> | undefined;
 
+  // Mystery placeholder count (3-5 slots, Section 12)
+  const mysterySlots = useMemo(() => {
+    return Array.from({ length: 4 });
+  }, []);
+
   return (
     <AppShell>
-      <div className="eyebrow">Kho báu B-Side</div>
-      {/* Requirement 17: Discovered X / ??? without revealing total count */}
-      <h1>Đã khám phá: {unlockedRewards.length} / ???</h1>
-      <p className="muted" style={{ maxWidth: 640, marginTop: -14, marginBottom: 28, lineHeight: 1.5 }}>
-        Mỗi khi hoàn thành một cuộn băng tài liệu (Finish Tape), một món quà ngẫu nhiên từ thế giới B-Side sẽ được mở khóa và lưu giữ vĩnh viễn tại đây.
-      </p>
+      {/* Top Breadcrumb */}
+      <div className="eyebrow" style={{ marginBottom: 12 }}>
+        Kho báu B-Side
+      </div>
+
+      {/* Header: Headline + Sticky Note */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) auto',
+          gap: 24,
+          alignItems: 'start',
+          marginBottom: 28
+        }}
+      >
+        <div>
+          <h1 style={{ margin: '0 0 10px' }}>
+            Kho B-Side · Đã khám phá: {unlockedRewards.length} / ???
+          </h1>
+          <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 620, lineHeight: 1.55 }}>
+            Mỗi khi bạn hoàn thành một cuộn băng (Finish Tape), một món quà bất ngờ từ mặt B sẽ được mở khóa và cất giữ vĩnh viễn trong bộ sưu tập này.
+          </p>
+        </div>
+
+        {/* Decorative Editorial Sticky Note */}
+        <div className="desktopOnly" style={{ maxWidth: 260, flexShrink: 0 }}>
+          <StickyNote>
+            <div style={{ fontStyle: 'italic', color: 'var(--ink)' }}>
+              “Mặt B luôn dành cho những bất ngờ nhỏ, bài học thú vị và những kỷ niệm gom được trên hành trình.”
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--terracotta)', textAlign: 'right' }}>
+              — B-Side Vault
+            </div>
+          </StickyNote>
+        </div>
+      </div>
+
+      {/* Filter Row: Tất cả, Đã khám phá, Chưa khám phá (Section 12: No rarity UI!) */}
+      <div className="filterRow" style={{ marginBottom: 26 }}>
+        {[
+          ['all', `Tất cả`],
+          ['unlocked', `Đã khám phá (${unlockedRewards.length})`],
+          ['mystery', `Chưa khám phá (???)`]
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            className={`pill ${filter === key ? 'activePill' : ''}`}
+            onClick={() => setFilter(key as VaultFilter)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* Rewards Grid */}
-      {unlockedRewards.length === 0 ? (
-        <div className="card emptyState" style={{ marginTop: 20, padding: '48px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📼</div>
-          <h3 style={{ margin: '0 0 8px' }}>Chưa tìm thấy B-Side nào.</h3>
-          <p className="muted" style={{ maxWidth: 460, margin: '0 auto', lineHeight: 1.5 }}>
-            Hoàn thành cuộn băng đầu tiên rồi xem StudyFlow giấu gì ở mặt B.
-          </p>
+      {unlockedRewards.length === 0 && filter === 'unlocked' ? (
+        <div className="card" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+          Bạn chưa mở khóa món quà B-Side nào. Hãy đọc xong một tài liệu và bấm Finish Tape!
         </div>
       ) : (
         <div className="vaultGrid">
-          {unlockedRewards.map((reward) => {
-            const payload = reward.payload as Record<string, unknown>;
-            const icon = (payload.icon as string) || '🎁';
+          {/* Unlocked Cards */}
+          {(filter === 'all' || filter === 'unlocked') &&
+            unlockedRewards.map((reward) => {
+              const payload = reward.payload as Record<string, unknown>;
+              const icon = (payload.icon as string) || '🎁';
 
-            return (
+              return (
+                <div
+                  key={reward.id}
+                  className="card"
+                  style={{
+                    padding: 16,
+                    borderRadius: 16,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    background: 'var(--panel)',
+                    border: '1px solid var(--line)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    boxShadow: 'var(--shadow)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow)';
+                  }}
+                  onClick={() => {
+                    setActiveModalReward(reward);
+                    if (reward.rewardType === 'audio') {
+                      playRewardSound((payload.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare');
+                    }
+                  }}
+                >
+                  {/* Card Artwork / Stamp Area */}
+                  <div
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: 12,
+                      background: 'var(--card-subtle)',
+                      border: '1px dashed var(--line)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 48,
+                      marginBottom: 12
+                    }}
+                  >
+                    {icon}
+                  </div>
+
+                  {/* Card Title & Type */}
+                  <strong style={{ fontSize: 14, color: 'var(--ink)', marginBottom: 4, lineHeight: 1.3 }}>
+                    {reward.rewardTitle}
+                  </strong>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    {formatRelativeTime(reward.unlockedAt)}
+                  </span>
+                </div>
+              );
+            })}
+
+          {/* Mysterious unnumbered locked placeholders (Section 12: 3-5 slots with ???) */}
+          {(filter === 'all' || filter === 'mystery') &&
+            mysterySlots.map((_, i) => (
               <div
-                key={reward.id}
-                className="card reward"
-                style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
-                onClick={() => {
-                  setActiveModalReward(reward);
-                  if (reward.rewardType === 'audio') {
-                    playRewardSound((payload.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare');
-                  }
+                key={`placeholder-${i}`}
+                className="card"
+                style={{
+                  padding: 16,
+                  borderRadius: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  background: 'var(--card-subtle)',
+                  border: '1.5px dashed var(--line)',
+                  opacity: 0.65,
+                  cursor: 'default',
+                  userSelect: 'none'
                 }}
               >
-                <div>{icon}</div>
-                <small style={{ fontWeight: 600, color: 'var(--ink)' }}>{reward.rewardTitle}</small>
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1',
+                    borderRadius: 12,
+                    background: 'transparent',
+                    border: '1px dashed var(--line)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'var(--muted)',
+                    marginBottom: 12
+                  }}
+                >
+                  <IconCassetteLogo size={32} />
+                </div>
+                <strong style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 4 }}>???</strong>
+                <span className="muted" style={{ fontSize: 11 }}>Bí mật mặt B</span>
               </div>
-            );
-          })}
-
-          {/* Mysterious unnumbered locked placeholders */}
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={`placeholder-${i}`}
-              className="card reward"
-              style={{
-                opacity: 0.45,
-                background: 'var(--card-subtle)',
-                borderStyle: 'dashed',
-                transition: 'transform 0.2s ease',
-                cursor: 'default'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'rotate(-1deg) translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'none';
-              }}
-            >
-              <div style={{ fontSize: 32 }}>📼</div>
-              <small>???</small>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 
-      {unlockedRewards.length > 0 && (
-        <p className="muted" style={{ fontStyle: 'italic', fontSize: 13, marginTop: 32, textAlign: 'center' }}>
-          “Còn những thứ khác đang nằm đâu đó trong B-Side…”
-        </p>
-      )}
+      {/* Footer subtle quote */}
+      <p className="muted" style={{ fontStyle: 'italic', fontSize: 13, marginTop: 40, textAlign: 'center' }}>
+        “Còn những điều thú vị khác đang nằm ẩn giấu trong mặt B…”
+      </p>
 
-      {/* Detail Modal */}
+      {/* Detail Modal / Postcard View */}
       {activeModalReward && (
         <div
           style={{
@@ -121,106 +232,114 @@ export default function VaultPage() {
             zIndex: 9999,
             display: 'grid',
             placeItems: 'center',
-            padding: 16
+            padding: 16,
+            backdropFilter: 'blur(4px)'
           }}
           onClick={() => setActiveModalReward(null)}
         >
           <div
             className="card"
-            style={{ width: 'min(460px, 100%)', padding: 28, textAlign: 'center' }}
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(460px, 100%)',
+              padding: 28,
+              textAlign: 'center',
+              position: 'relative',
+              borderRadius: 20
+            }}
+            onClick={e => e.stopPropagation()}
           >
-            <div className="eyebrow" style={{ color: 'var(--terracotta)' }}>B-Side Relic</div>
-            <div style={{ fontSize: 64, margin: '14px 0' }}>
+            <button
+              onClick={() => setActiveModalReward(null)}
+              className="secondary"
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                padding: '4px 8px',
+                borderRadius: '50%',
+                border: 'none',
+                background: 'var(--card-subtle)'
+              }}
+              aria-label="Đóng"
+            >
+              <IconClose size={16} />
+            </button>
+
+            {/* Postcard Stamp Artwork */}
+            <div
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 20,
+                background: 'var(--card-subtle)',
+                border: '2px dashed var(--line)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: 54,
+                margin: '0 auto 16px'
+              }}
+            >
               {(activePayload?.icon as string) || '🎁'}
             </div>
-            <h2 style={{ margin: '6px 0' }}>{activeModalReward.rewardTitle}</h2>
 
-            {Boolean(activePayload?.subtitle) && (
-              <div className="muted" style={{ fontStyle: 'italic', fontSize: 13, marginBottom: 14 }}>
-                {activePayload?.subtitle as string}
+            <h3 style={{ margin: '0 0 6px', fontSize: 22, fontFamily: 'var(--font-serif)' }}>
+              {activeModalReward.rewardTitle}
+            </h3>
+
+            <div className="eyebrow" style={{ marginBottom: 16, color: 'var(--sage)' }}>
+              {activeModalReward.rewardType === 'audio' ? 'Âm thanh kỷ niệm' : 'Bưu thiếp kỷ niệm'}
+            </div>
+
+            <p style={{ lineHeight: 1.6, margin: '0 0 20px', color: 'var(--ink)', fontSize: 14 }}>
+              {(activePayload?.description as string) || (activePayload?.message as string) || 'Một phần thưởng ngẫu nhiên từ kho B-Side của bạn.'}
+            </p>
+
+            {/* Provenance info (Section 12: Source document + unlocked date) */}
+            <div
+              style={{
+                background: 'var(--card-subtle)',
+                borderRadius: 12,
+                padding: '10px 14px',
+                fontSize: 12,
+                textAlign: 'left',
+                border: '1px solid var(--line)',
+                marginBottom: 20
+              }}
+            >
+              <div style={{ color: 'var(--muted)', marginBottom: 2 }}>Nguồn gốc kỷ niệm:</div>
+              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                {activeModalReward.documentTitle || (activeModalReward.documentId ? documentsMap[activeModalReward.documentId]?.title : undefined) || 'Tài liệu đã hoàn thành'}
               </div>
-            )}
-
-            {/* Certificate display */}
-            {activeModalReward.rewardType === 'certificate' && (
-              <div
-                style={{
-                  background: 'var(--card-subtle)',
-                  border: '2px dashed var(--olive-cream)',
-                  borderRadius: 12,
-                  padding: 16,
-                  margin: '12px 0',
-                  textAlign: 'left'
-                }}
-              >
-                <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700 }}>
-                  Chứng nhận hoàn thành
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 15, margin: '4px 0', color: 'var(--ink)' }}>
-                  {activePayload?.certificateRecipientTitle as string}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4 }}>
-                  {activePayload?.certificateReason as string}
-                </div>
+              <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                Mở khóa {formatRelativeTime(activeModalReward.unlockedAt)}
               </div>
-            )}
+            </div>
 
-            {/* Collectible display (Requirement 16 - No rarity label) */}
-            {activeModalReward.rewardType === 'collectible' && (
-              <div style={{ background: 'var(--card-subtle)', borderRadius: 12, padding: 14, margin: '12px 0', fontSize: 13 }}>
-                <p style={{ margin: 0, color: 'var(--muted)', fontStyle: 'italic' }}>
-                  “{activePayload?.lore as string}”
-                </p>
-              </div>
-            )}
-
-            {/* Meme display */}
-            {activeModalReward.rewardType === 'meme' && (
-              <div
-                style={{
-                  background: 'var(--ink)',
-                  color: 'white',
-                  borderRadius: 12,
-                  padding: 16,
-                  margin: '12px 0',
-                  fontFamily: 'Impact, ui-sans-serif, sans-serif'
-                }}
-              >
-                <div style={{ fontSize: 16, letterSpacing: 1 }}>{activePayload?.memeHeader as string}</div>
-                <div style={{ fontSize: 14, marginTop: 10, whiteSpace: 'pre-line', color: 'var(--apricot)' }}>
-                  {activePayload?.memeFooter as string}
-                </div>
-              </div>
-            )}
-
-            {/* Audio action */}
+            {/* Audio Replay CTA if audio reward */}
             {activeModalReward.rewardType === 'audio' && (
-              <div style={{ margin: '14px 0' }}>
-                <button
-                  className="secondary"
-                  onClick={() => playRewardSound((activePayload?.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
-                >
-                  🔊 Phát âm thanh B-Side
-                </button>
-              </div>
+              <button
+                className="secondary"
+                style={{ width: '100%', marginBottom: 10, padding: '10px', fontWeight: 600 }}
+                onClick={() => {
+                  playRewardSound((activePayload?.soundType as 'fanfare' | 'retro-chime' | 'lofi-rain' | 'mystery-chord') || 'fanfare');
+                }}
+              >
+                🔊 Phát lại âm thanh
+              </button>
             )}
 
-            <div className="muted" style={{ fontSize: 12, marginTop: 16 }}>
-              Mở khóa từ tài liệu: <strong>{(activeModalReward.documentId && documentsMap[activeModalReward.documentId]?.title) || activeModalReward.documentTitle || 'Cuộn băng StudyFlow'}</strong>
-              <br />
-              <span style={{ fontSize: 11 }}>({formatRelativeTime(activeModalReward.unlockedAt)})</span>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <button className="primary" style={{ padding: '8px 24px' }} onClick={() => setActiveModalReward(null)}>
-                Đóng
-              </button>
-            </div>
+            <button
+              className="primary"
+              style={{ width: '100%', padding: '10px 14px' }}
+              onClick={() => setActiveModalReward(null)}
+            >
+              Cất vào kho B-Side
+            </button>
           </div>
         </div>
       )}
     </AppShell>
   );
 }
+
+export default VaultPage;

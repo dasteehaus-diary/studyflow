@@ -430,7 +430,7 @@ export default function SettingsPage() {
         <section className="card" style={{ padding: '20px 24px' }}>
           <h3 style={{ margin: '0 0 8px' }}>Nhắc nhở qua Telegram</h3>
           <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, margin: '0 0 16px' }}>
-            StudyFlow gửi tin nhắn nhắc nhở kèm theo đúng dòng suy nghĩ (Parking Note) và % cuộn băng khi bạn bỏ dở tài liệu để giảm ma sát quay lại học.
+            StudyFlow gửi tin nhắn nhắc nhở kèm theo đúng dòng suy nghĩ (Parking Note) và vị trí trang đọc chính xác khi bạn bỏ dở tài liệu để giảm ma sát quay lại học.
           </p>
 
           <div className="setting">

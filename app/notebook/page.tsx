@@ -7,8 +7,19 @@ import { AppShell } from '@/components/AppShell';
 import { localDB, type LocalNote, type LocalDocument, type LocalHighlight } from '@/lib/db/local';
 import { enqueueSync } from '@/lib/sync/sync-service';
 import { formatRelativeTime } from '@/lib/utils/time';
+import {
+  IconSearch,
+  IconNotebook,
+  IconQuestion,
+  IconParkingNote,
+  IconPencil,
+  IconTrash,
+  IconArrowRight,
+  StickyNote
+} from '@/components/icons/BrandIcons';
 
-type FilterTab = 'all' | 'highlights' | 'quick' | 'question' | 'parking' | 'open' | 'resolved';
+type PrimaryFilter = 'all' | 'highlights' | 'quick' | 'question' | 'parking';
+type StatusFilter = 'all' | 'open' | 'resolved';
 
 interface UnifiedItem {
   id: string;
@@ -25,15 +36,18 @@ interface UnifiedItem {
   updatedAt: string;
 }
 
-export default function NotebookPage() {
+export function NotebookPage() {
   const [notes, setNotes] = useState<LocalNote[]>([]);
   const [highlightsList, setHighlightsList] = useState<LocalHighlight[]>([]);
   const [documents, setDocuments] = useState<Record<string, LocalDocument>>({});
   const [highlightsMap, setHighlightsMap] = useState<Record<string, LocalHighlight>>({});
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+
+  // Separated Primary & Status Filters (Section 11)
+  const [primaryFilter, setPrimaryFilter] = useState<PrimaryFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Requirement 14: Edit Note state in notebook
+  // Edit Note inline state
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
@@ -72,7 +86,7 @@ export default function NotebookPage() {
     };
   }, []);
 
-  // Requirement 13: Unified items combining notes and standalone highlights
+  // Unified items combining notes and standalone highlights
   const unifiedItems = useMemo<UnifiedItem[]>(() => {
     const items: UnifiedItem[] = [];
 
@@ -114,7 +128,7 @@ export default function NotebookPage() {
     return items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [notes, highlightsList]);
 
-  // Requirement 14: Save edited note
+  // Save edited note
   const handleSaveEdit = async (noteId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -137,18 +151,53 @@ export default function NotebookPage() {
     setEditingText('');
   };
 
-  // Filter unified items
+  // Toggle resolve status for question notes
+  const handleToggleQuestionStatus = async (noteId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!localDB) return;
+
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+
+    const nextStatus = note.status === 'resolved' ? 'reopened' : 'resolved';
+    const now = new Date().toISOString();
+    await localDB.notes.update(noteId, { status: nextStatus, updatedAt: now });
+    await enqueueSync('note', noteId, 'upsert', { ...note, status: nextStatus, updatedAt: now });
+  };
+
+  // Delete note
+  const handleDeleteNote = async (noteId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!localDB || !window.confirm('Bạn có chắc chắn muốn xóa ghi chú này?')) return;
+
+    await localDB.notes.delete(noteId);
+    await enqueueSync('note', noteId, 'delete', { id: noteId });
+  };
+
+  // Filter items
   const filteredItems = useMemo(() => {
     return unifiedItems.filter((item) => {
-      // Tab filters
-      if (filterTab === 'highlights' && item.itemType !== 'highlight') return false;
-      if (filterTab === 'quick' && (item.itemType !== 'note' || item.noteType !== 'quick')) return false;
-      if (filterTab === 'parking' && (item.itemType !== 'note' || item.noteType !== 'parking')) return false;
-      if (filterTab === 'question' && (item.itemType !== 'note' || item.noteType !== 'question')) return false;
-      if (filterTab === 'open' && (item.itemType !== 'note' || item.noteType !== 'question' || item.status === 'resolved')) return false;
-      if (filterTab === 'resolved' && (item.itemType !== 'note' || item.noteType !== 'question' || item.status !== 'resolved')) return false;
+      // Primary category filter
+      if (primaryFilter === 'highlights' && item.itemType !== 'highlight') return false;
+      if (primaryFilter === 'quick' && (item.itemType !== 'note' || item.noteType !== 'quick')) return false;
+      if (primaryFilter === 'parking' && (item.itemType !== 'note' || item.noteType !== 'parking')) return false;
+      if (primaryFilter === 'question' && (item.itemType !== 'note' || item.noteType !== 'question')) return false;
 
-      // Text search
+      // Status filter
+      if (statusFilter === 'open') {
+        if (item.itemType === 'note' && item.noteType === 'question' && item.status === 'resolved') {
+          return false;
+        }
+      }
+      if (statusFilter === 'resolved') {
+        if (item.itemType !== 'note' || item.noteType !== 'question' || item.status !== 'resolved') {
+          return false;
+        }
+      }
+
+      // Search query across note text, quote, and document title
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const noteMatch = item.noteText?.toLowerCase().includes(q);
@@ -160,44 +209,103 @@ export default function NotebookPage() {
 
       return true;
     });
-  }, [unifiedItems, filterTab, searchQuery, documents]);
+  }, [unifiedItems, primaryFilter, statusFilter, searchQuery, documents]);
 
   return (
     <AppShell>
-      <div className="eyebrow">Sổ tay tri thức</div>
-      <h1>Ghi chú luôn nhớ rõ nguồn gốc từng trang sách.</h1>
+      {/* Top Breadcrumb */}
+      <div className="eyebrow" style={{ marginBottom: 12 }}>
+        Sổ tay tri thức
+      </div>
 
-      {/* Search and Filters (Requirement 13) */}
-      <div style={{ display: 'grid', gap: 14, marginBottom: 24, maxWidth: 840 }}>
-        <input
-          type="search"
-          placeholder="🔍 Tìm kiếm trong ghi chú, trích dẫn highlight, câu hỏi, tên tài liệu…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            padding: '10px 14px',
-            borderRadius: 12,
-            border: '1px solid var(--line)',
-            background: 'var(--panel)',
-            fontSize: 14
-          }}
-        />
+      {/* Header: Headline + Sticky Note */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) auto',
+          gap: 24,
+          alignItems: 'start',
+          marginBottom: 28
+        }}
+      >
+        <div>
+          <h1 style={{ margin: '0 0 10px' }}>
+            Ghi chú luôn nhớ rõ nguồn gốc từng trang sách.
+          </h1>
+          <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 600, lineHeight: 1.55 }}>
+            Tất cả trích dẫn, câu hỏi và suy nghĩ được lưu giữ nguyên văn kèm vị trí chính xác trong tài liệu gốc.
+          </p>
+        </div>
 
-        <div className="filterRow" style={{ margin: 0, gap: 6 }}>
+        {/* Decorative Editorial Sticky Note */}
+        <div className="desktopOnly" style={{ maxWidth: 260, flexShrink: 0 }}>
+          <StickyNote>
+            <div style={{ fontStyle: 'italic', color: 'var(--ink)' }}>
+              “Mỗi ghi chú hay câu hỏi là một chiếc neo giúp bạn kết nối ý niệm mới mà không sợ quên gốc tích.”
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--terracotta)', textAlign: 'right' }}>
+              — Mạch suy nghĩ
+            </div>
+          </StickyNote>
+        </div>
+      </div>
+
+      {/* Search and Filters Section */}
+      <div style={{ display: 'grid', gap: 14, marginBottom: 28 }}>
+        {/* Search Bar */}
+        <div style={{ position: 'relative', width: 'min(540px, 100%)' }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', display: 'flex' }}>
+            <IconSearch size={18} />
+          </span>
+          <input
+            type="search"
+            placeholder="Tìm kiếm trong ghi chú, trích dẫn highlight, câu hỏi, tên tài liệu…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 14px 10px 42px',
+              borderRadius: 24,
+              fontSize: 14,
+              background: 'var(--panel)',
+              border: '1px solid var(--line)'
+            }}
+          />
+        </div>
+
+        {/* Primary Filter Row */}
+        <div className="filterRow" style={{ margin: 0, gap: 8 }}>
+          <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Loại:</span>
           {[
             ['all', `Tất cả (${unifiedItems.length})`],
             ['highlights', `Trích dẫn (${highlightsList.length})`],
             ['quick', 'Ghi chú'],
             ['question', 'Câu hỏi'],
-            ['parking', 'Parking Note'],
+            ['parking', 'Parking Note']
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={`pill ${primaryFilter === key ? 'activePill' : ''}`}
+              onClick={() => setPrimaryFilter(key as PrimaryFilter)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filter Row */}
+        <div className="filterRow" style={{ margin: 0, gap: 8 }}>
+          <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Trạng thái:</span>
+          {[
+            ['all', 'Tất cả trạng thái'],
             ['open', 'Chưa giải quyết'],
             ['resolved', 'Đã giải quyết']
           ].map(([key, label]) => (
             <button
               key={key}
-              className={`pill ${filterTab === key ? 'activePill' : ''}`}
-              style={filterTab === key ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)' } : undefined}
-              onClick={() => setFilterTab(key as FilterTab)}
+              className={`pill ${statusFilter === key ? 'activePill' : ''}`}
+              style={{ fontSize: 12, padding: '5px 12px' }}
+              onClick={() => setStatusFilter(key as StatusFilter)}
             >
               {label}
             </button>
@@ -205,185 +313,281 @@ export default function NotebookPage() {
         </div>
       </div>
 
-      {/* Unified Knowledge List */}
-      <div style={{ display: 'grid', gap: 12, maxWidth: 900 }}>
-        {filteredItems.map((item) => {
-          const doc = documents[item.documentId];
-          const docTitle = doc?.title || 'Tài liệu không xác định';
-          const hl = item.highlightId ? highlightsMap[item.highlightId] : null;
+      {/* Grid of Knowledge Cards (Scan-friendly grid on desktop, single column on mobile) */}
+      {filteredItems.length === 0 ? (
+        <div
+          className="card"
+          style={{
+            padding: '48px 24px',
+            textAlign: 'center',
+            color: 'var(--muted)',
+            display: 'grid',
+            placeItems: 'center',
+            gap: 10
+          }}
+        >
+          <div style={{ fontSize: 32 }}>✎</div>
+          <h3 style={{ margin: '4px 0' }}>Không tìm thấy ghi chép nào</h3>
+          <p style={{ margin: 0, fontSize: 14 }}>Thử đổi từ khóa tìm kiếm hoặc điều kiện lọc ở trên.</p>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: 18
+          }}
+        >
+          {filteredItems.map((item) => {
+            const doc = documents[item.documentId];
+            const docTitle = doc?.title || 'Tài liệu đã lưu';
+            const isHighlight = item.itemType === 'highlight';
+            const isParking = item.noteType === 'parking';
+            const isQuestion = item.noteType === 'question';
+            const isResolved = item.status === 'resolved';
+            const isEditing = editingNoteId === item.id;
 
-          const isHighlight = item.itemType === 'highlight';
-          const isParking = item.noteType === 'parking';
-          const isQuestion = item.noteType === 'question';
-          const isResolved = item.status === 'resolved';
-          const isEditing = editingNoteId === item.id;
+            const cardBorderColor = isHighlight
+              ? 'var(--dusty-blue)'
+              : isParking
+              ? 'var(--terracotta)'
+              : isQuestion
+              ? (isResolved ? 'var(--sage)' : 'var(--coral)')
+              : 'var(--peach)';
 
-          const borderColor = isHighlight
-            ? 'var(--olive)'
-            : isParking
-            ? 'var(--terracotta)'
-            : isQuestion
-            ? (isResolved ? 'var(--olive)' : 'var(--rose)')
-            : 'var(--apricot)';
+            const badgeBg = isHighlight
+              ? 'rgba(154, 174, 195, 0.15)'
+              : isParking
+              ? 'rgba(189, 87, 56, 0.12)'
+              : isQuestion
+              ? (isResolved ? 'rgba(94, 127, 104, 0.15)' : 'rgba(214, 111, 104, 0.15)')
+              : 'rgba(233, 161, 122, 0.16)';
 
-          const targetUrl = `/reader/${item.documentId}?page=${item.page}&y=${item.y}${item.highlightId ? `&highlight=${item.highlightId}` : ''}`;
+            const badgeColor = isHighlight
+              ? 'var(--dusty-blue)'
+              : isParking
+              ? 'var(--terracotta)'
+              : isQuestion
+              ? (isResolved ? 'var(--sage)' : 'var(--coral)')
+              : 'var(--terracotta)';
 
-          return (
-            <div
-              key={`${item.itemType}-${item.id}`}
-              className="card"
-              style={{
-                padding: '16px 20px',
-                display: 'grid',
-                gap: 8,
-                borderLeft: `5px solid ${borderColor}`,
-                position: 'relative'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Link
-                    href={targetUrl}
-                    style={{ fontSize: 13, fontWeight: 700, color: 'var(--deep)' }}
-                    title={`Mở tài liệu tại trang ${item.page}`}
-                  >
-                    {docTitle}
-                  </Link>
-                  <Link
-                    href={targetUrl}
-                    className="muted"
-                    style={{ fontSize: 12 }}
-                  >
-                    · Trang {item.page}
-                  </Link>
-                  <span className="muted" style={{ fontSize: 11 }}>({formatRelativeTime(item.updatedAt)})</span>
-                </div>
+            const targetUrl = `/reader/${item.documentId}?page=${item.page}&y=${item.y}${item.highlightId ? `&highlight=${item.highlightId}` : ''}`;
 
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {isHighlight && (
-                    <span className="verifyBadge" style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(115, 114, 63, 0.15)', color: 'var(--olive)' }}>
-                      🖍️ Highlight
-                    </span>
-                  )}
-                  {isParking && (
-                    <span className="verifyBadge" style={{ fontSize: 10, padding: '2px 8px', background: 'rgba(189, 87, 56, 0.15)', color: 'var(--terracotta)' }}>
-                      📌 Parking
-                    </span>
-                  )}
-                  {isQuestion && (
-                    <span className={`verifyBadge ${isResolved ? 'pass' : 'fail'}`} style={{ fontSize: 10, padding: '2px 8px' }}>
-                      {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}
-                    </span>
-                  )}
-
-                  {/* Edit button for notes (Requirement 14) */}
-                  {!isHighlight && !isEditing && (
-                    <button
-                      className="secondary"
-                      style={{ fontSize: 11, padding: '2px 6px', border: 0 }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditingNoteId(item.id);
-                        setEditingText(item.noteText || '');
-                      }}
-                      title="Sửa ghi chú"
-                    >
-                      ✎ Sửa
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Highlight quote text */}
-              {item.quoteText && (
-                <Link
-                  href={targetUrl}
-                  style={{
-                    display: 'block',
-                    fontSize: 13,
-                    fontStyle: 'italic',
-                    borderLeft: '3px solid var(--apricot)',
-                    paddingLeft: 10,
-                    color: 'var(--muted)',
-                    lineHeight: 1.45,
-                    textDecoration: 'none'
-                  }}
-                  title="Nhảy tới vị trí trích dẫn này trong sách"
-                >
-                  “{item.quoteText}”
-                </Link>
-              )}
-
-              {/* Note text / Edit box */}
-              {!isHighlight && (
-                isEditing ? (
-                  <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
-                    <textarea
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      rows={3}
+            return (
+              <div
+                key={`${item.itemType}-${item.id}`}
+                className="card"
+                style={{
+                  padding: '18px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  borderLeft: `4px solid ${cardBorderColor}`,
+                  borderRadius: 14,
+                  position: 'relative',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                }}
+              >
+                {/* Header: Type Badge + Status + Date */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
                       style={{
-                        width: '100%',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '2px 8px',
                         borderRadius: 6,
-                        border: '1px solid var(--line)',
-                        padding: 8,
-                        fontSize: 13,
-                        fontFamily: 'inherit'
+                        background: badgeBg,
+                        color: badgeColor,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
                       }}
-                      autoFocus
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                      <button
-                        className="secondary"
-                        style={{ fontSize: 11, padding: '2px 8px' }}
-                        onClick={() => setEditingNoteId(null)}
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        className="primary"
-                        style={{ fontSize: 11, padding: '2px 10px' }}
-                        onClick={(e) => handleSaveEdit(item.id, e)}
-                      >
-                        Lưu
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                    {item.noteText}
-                  </div>
-                )
-              )}
+                    >
+                      {isHighlight && '❝ Trích dẫn'}
+                      {item.noteType === 'quick' && '✎ Ghi chú'}
+                      {isQuestion && '❓ Câu hỏi'}
+                      {isParking && '📌 Parking Note'}
+                    </span>
 
-              {/* Direct Jump to Source Link */}
-              <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
-                <Link
-                  href={targetUrl}
+                    {isQuestion && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: 6,
+                          background: isResolved ? 'rgba(94, 127, 104, 0.12)' : 'rgba(214, 111, 104, 0.12)',
+                          color: isResolved ? 'var(--sage)' : 'var(--coral)'
+                        }}
+                      >
+                        {isResolved ? '✓ Đã giải đáp' : 'Chưa giải quyết'}
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    {formatRelativeTime(item.updatedAt)}
+                  </span>
+                </div>
+
+                {/* Linked Quote if present */}
+                {item.quoteText && (
+                  <blockquote
+                    style={{
+                      margin: 0,
+                      padding: '8px 12px',
+                      background: 'var(--card-subtle)',
+                      borderLeft: '3px solid var(--muted)',
+                      borderRadius: '0 8px 8px 0',
+                      fontSize: 13,
+                      fontStyle: 'italic',
+                      lineHeight: 1.45,
+                      color: 'var(--ink)'
+                    }}
+                  >
+                    “{item.quoteText}”
+                  </blockquote>
+                )}
+
+                {/* Main Note Text */}
+                {item.itemType === 'note' && (
+                  <div>
+                    {isEditing ? (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <textarea
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            padding: 8,
+                            borderRadius: 8,
+                            border: '1px solid var(--line)',
+                            fontSize: 13
+                          }}
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button
+                            className="secondary"
+                            style={{ padding: '3px 8px', fontSize: 11 }}
+                            onClick={() => { setEditingNoteId(null); setEditingText(''); }}
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            className="primary"
+                            style={{ padding: '3px 10px', fontSize: 11 }}
+                            onClick={(e) => handleSaveEdit(item.id, e)}
+                          >
+                            Lưu
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--ink)' }}>
+                        {item.noteText}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Footer: Source + Deep link CTA */}
+                <div
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: 'var(--terracotta)',
-                    textDecoration: 'none'
+                    marginTop: 'auto',
+                    paddingTop: 10,
+                    borderTop: '1px solid var(--line)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10
                   }}
                 >
-                  Nhảy tới vị trí trong sách →
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'var(--ink)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                      title={docTitle}
+                    >
+                      {docTitle}
+                    </div>
+                    <span className="muted" style={{ fontSize: 11 }}>Trang {item.page}</span>
+                  </div>
 
-        {filteredItems.length === 0 && (
-          <div className="card emptyState" style={{ padding: 40, textAlign: 'center' }}>
-            <p className="muted" style={{ margin: 0 }}>
-              {searchQuery
-                ? 'Không tìm thấy ghi chú hoặc trích dẫn nào khớp với từ khóa tìm kiếm.'
-                : 'Chưa có ghi chú hoặc trích dẫn nào trong danh mục này.'}
-            </p>
-          </div>
-        )}
-      </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {/* Action buttons for note */}
+                    {item.itemType === 'note' && !isEditing && (
+                      <>
+                        {isQuestion && (
+                          <button
+                            className="secondary"
+                            style={{ padding: '3px 7px', fontSize: 11 }}
+                            onClick={(e) => handleToggleQuestionStatus(item.id, e)}
+                            title={isResolved ? 'Mở lại câu hỏi' : 'Đánh dấu đã giải đáp'}
+                          >
+                            {isResolved ? '↩' : '✓'}
+                          </button>
+                        )}
+                        <button
+                          className="secondary"
+                          style={{ padding: '3px 7px', fontSize: 11 }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditingNoteId(item.id);
+                            setEditingText(item.noteText || '');
+                          }}
+                          title="Sửa ghi chú"
+                        >
+                          <IconPencil size={12} />
+                        </button>
+                        <button
+                          className="secondary danger"
+                          style={{ padding: '3px 7px', fontSize: 11 }}
+                          onClick={(e) => handleDeleteNote(item.id, e)}
+                          title="Xóa ghi chú"
+                        >
+                          <IconTrash size={12} />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Source Jump Link */}
+                    <Link
+                      href={targetUrl}
+                      className="secondary"
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 10px',
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        color: 'var(--terracotta)',
+                        borderColor: 'var(--line)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      <span>Mở nguồn</span>
+                      <IconArrowRight size={13} />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </AppShell>
   );
 }
+
+export default NotebookPage;
