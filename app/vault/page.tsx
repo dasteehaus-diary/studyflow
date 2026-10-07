@@ -115,12 +115,11 @@ export function VaultPage() {
               const payload = reward.payload as Record<string, unknown>;
               const icon = (payload.icon as string) || '🎁';
               const PASTEL_ROTATION = [
-                { bg: 'var(--sf-sage-soft)', border: 'rgba(111, 141, 119, 0.35)' },
-                { bg: 'var(--sf-blue-soft)', border: 'rgba(159, 180, 198, 0.35)' },
-                { bg: 'var(--sf-rose-soft)', border: 'rgba(217, 131, 131, 0.35)' },
-                { bg: 'var(--sf-apricot-soft)', border: 'rgba(233, 161, 122, 0.35)' },
-                { bg: 'var(--sf-olive-soft)', border: 'rgba(185, 178, 114, 0.35)' },
-                { bg: 'var(--sf-yellow-soft)', border: 'rgba(246, 223, 162, 0.45)' }
+                { bg: 'var(--sf-lavender-soft)', border: 'rgba(200, 190, 216, 0.45)' },
+                { bg: 'var(--sf-coral-soft)', border: 'rgba(232, 154, 141, 0.45)' },
+                { bg: 'var(--sf-dusty-blue-soft)', border: 'rgba(175, 196, 212, 0.45)' },
+                { bg: 'var(--sf-sage-soft)', border: 'rgba(169, 189, 165, 0.45)' },
+                { bg: 'var(--sf-butter-soft)', border: 'rgba(242, 223, 166, 0.55)' }
               ];
               const pastel = PASTEL_ROTATION[idx % PASTEL_ROTATION.length];
 
@@ -184,7 +183,7 @@ export function VaultPage() {
               );
             })}
 
-          {/* Mysterious unnumbered locked placeholders (Section 12: 3-5 slots with ???) */}
+          {/* Mysterious unnumbered locked placeholders (Section 12: neutral paper + lavender accent) */}
           {(filter === 'all' || filter === 'mystery') &&
             mysterySlots.map((_, i) => (
               <div
@@ -199,7 +198,7 @@ export function VaultPage() {
                   textAlign: 'center',
                   background: 'var(--card-subtle)',
                   border: '1.5px dashed var(--line)',
-                  opacity: 0.75,
+                  opacity: 0.85,
                   cursor: 'default',
                   userSelect: 'none'
                 }}
@@ -209,12 +208,12 @@ export function VaultPage() {
                     width: '100%',
                     aspectRatio: '1',
                     borderRadius: 12,
-                    background: 'var(--panel)',
+                    background: 'var(--sf-surface)',
                     border: '1px dashed var(--line)',
                     display: 'grid',
                     placeItems: 'center',
-                    color: 'var(--sf-terracotta)',
-                    opacity: 0.8,
+                    color: 'var(--sf-lavender)',
+                    opacity: 0.9,
                     marginBottom: 12
                   }}
                 >

@@ -676,12 +676,12 @@ export function StickyNote({
       className={`studyflow-sticky-note ${className}`}
       style={{
         position: 'relative',
-        background: 'var(--sf-yellow-soft, #FBF3D2)',
-        border: '1px solid rgba(185, 178, 114, 0.35)',
-        borderRadius: 12,
+        background: 'var(--sf-butter-soft, #FBF4DA)',
+        border: '1px solid rgba(242, 223, 166, 0.55)',
+        borderRadius: 14,
         padding: '16px 18px',
-        boxShadow: '0 4px 14px rgba(68, 58, 43, 0.06)',
-        color: 'var(--ink, #222722)',
+        boxShadow: '0 4px 14px rgba(40, 49, 46, 0.05)',
+        color: 'var(--ink, #28312E)',
         fontSize: 13,
         lineHeight: 1.5,
         ...style
@@ -696,9 +696,9 @@ export function StickyNote({
           transform: 'translateX(-50%)',
           width: 54,
           height: 18,
-          background: 'rgba(233, 161, 122, 0.45)',
-          border: '1px dashed rgba(189, 87, 56, 0.3)',
-          borderRadius: 2,
+          background: 'rgba(232, 154, 141, 0.45)',
+          border: '1px dashed rgba(196, 95, 62, 0.35)',
+          borderRadius: 3,
           pointerEvents: 'none'
         }}
       />
