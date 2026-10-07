@@ -224,8 +224,8 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           className="docThumb"
           style={{
             background: document.thumbnail ? '#2c2a26' : (document.status === 'completed'
-              ? 'linear-gradient(135deg, var(--sage), #3c5443)'
-              : 'linear-gradient(135deg, var(--dusty-blue), #697a8c)'),
+              ? 'linear-gradient(135deg, var(--sf-mint-strong), #5C7B71)'
+              : 'linear-gradient(135deg, #78998E, #4E6E63)'),
             position: 'relative',
             overflow: 'hidden',
             boxShadow: 'inset 2px 0 5px rgba(0,0,0,0.15), 0 3px 10px rgba(0,0,0,0.06)'
@@ -260,21 +260,22 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
             </span>
           )}
 
-          {/* Format badge: PDF in rose-soft */}
+          {/* Format badge: PDF */}
           <span
             style={{
               position: 'absolute',
               top: 8,
               right: 8,
-              background: 'var(--sf-rose-soft)',
-              color: 'var(--sf-rose)',
-              border: '1px solid rgba(217, 131, 131, 0.35)',
+              background: 'rgba(255, 255, 255, 0.88)',
+              color: 'var(--sf-ink)',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
               padding: '2px 6px',
               borderRadius: 6,
               fontSize: 9,
               fontWeight: 700,
               zIndex: 2,
-              letterSpacing: '0.04em'
+              letterSpacing: '0.04em',
+              backdropFilter: 'blur(4px)'
             }}
           >
             PDF
@@ -286,9 +287,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'var(--sf-sage-soft)',
-                color: 'var(--sf-sage)',
-                border: '1px solid rgba(111, 141, 119, 0.4)',
+                background: 'var(--sf-mint-soft)',
+                color: 'var(--sf-mint-strong)',
+                border: '1px solid var(--sf-mint)',
                 padding: '3px 8px',
                 borderRadius: 8,
                 fontSize: 10,
@@ -307,9 +308,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'var(--card-subtle)',
-                color: 'var(--muted)',
-                border: '1px solid var(--line)',
+                background: 'var(--sf-surface-soft)',
+                color: 'var(--sf-muted)',
+                border: '1px solid var(--sf-line)',
                 padding: '3px 8px',
                 borderRadius: 8,
                 fontSize: 10,
@@ -349,9 +350,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                   fontSize: 11,
                   padding: '2px 8px',
                   borderRadius: 6,
-                  background: 'var(--sf-apricot-soft)',
-                  color: 'var(--sf-terracotta)',
-                  border: '1px solid rgba(233, 161, 122, 0.35)',
+                  background: 'var(--sf-surface-soft)',
+                  color: 'var(--sf-muted)',
+                  border: '1px solid var(--sf-line)',
                   fontWeight: 500
                 }}
               >
@@ -365,7 +366,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
 
           {fileExists === false && (
             <div style={{ marginTop: 8 }}>
-              <span style={{ color: 'var(--terracotta)', fontSize: 12, fontWeight: 600 }}>
+              <span style={{ color: 'var(--sf-coral)', fontSize: 12, fontWeight: 600 }}>
                 ⚠️ File PDF thiếu trên thiết bị
               </span>
               <button

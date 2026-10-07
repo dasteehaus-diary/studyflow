@@ -258,9 +258,9 @@ export function HighlightNotePopover({
               gap: 4,
               textDecoration: 'none',
               borderRadius: 8,
-              background: 'var(--sf-blue-soft)',
-              color: '#355877',
-              border: '1px solid rgba(159, 180, 198, 0.4)'
+              background: 'var(--sf-mint-soft)',
+              color: 'var(--sf-mint-strong)',
+              border: '1px solid var(--sf-mint)'
             }}
             title="Mở trong Sổ tay tri thức"
           >
@@ -432,9 +432,9 @@ export function HighlightNotePopover({
                     style={{
                       fontSize: 11,
                       padding: '4px 8px',
-                      color: 'var(--sf-rose)',
-                      background: 'var(--sf-rose-soft)',
-                      border: '1px solid rgba(217, 131, 131, 0.4)'
+                      color: 'var(--sf-coral)',
+                      background: 'var(--sf-coral-soft)',
+                      border: '1px solid var(--sf-coral)'
                     }}
                     onClick={() => handleCreate('question')}
                     disabled={isSubmitting}
@@ -448,7 +448,7 @@ export function HighlightNotePopover({
                     style={{
                       fontSize: 11,
                       padding: '4px 12px',
-                      background: 'var(--sf-apricot)',
+                      background: 'var(--sf-mint-strong)',
                       color: 'white',
                       border: 0
                     }}

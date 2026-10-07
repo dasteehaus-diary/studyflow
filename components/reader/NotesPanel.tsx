@@ -569,10 +569,10 @@ export function NotesPanel({
                   padding: '4px 12px',
                   background:
                     composerType === 'parking'
-                      ? 'var(--sf-blue)'
+                      ? 'var(--sf-mint)'
                       : composerType === 'question'
-                      ? 'var(--sf-rose)'
-                      : 'var(--sf-apricot)',
+                      ? 'var(--sf-coral)'
+                      : 'var(--sf-mint-strong)',
                   color: 'white',
                   border: 0
                 }}
@@ -621,23 +621,11 @@ export function NotesPanel({
     const isResolved = note.status === 'resolved';
     const isEditing = editingNoteId === note.id;
 
-    const cardBg = isParking
-      ? 'var(--sf-blue-soft)'
+    const indicatorColor = isParking
+      ? 'var(--sf-mint)'
       : isQuestion
-      ? (isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)')
-      : 'var(--sf-apricot-soft)';
-
-    const cardBorder = isParking
-      ? 'rgba(159, 180, 198, 0.35)'
-      : isQuestion
-      ? (isResolved ? 'rgba(111, 141, 119, 0.35)' : 'rgba(217, 131, 131, 0.35)')
-      : 'rgba(233, 161, 122, 0.35)';
-
-    const cardBorderColor = isParking
-      ? 'var(--sf-blue)'
-      : isQuestion
-      ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
-      : 'var(--sf-apricot)';
+      ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
+      : 'var(--sf-mint-strong)';
 
     return (
       <div
@@ -647,10 +635,11 @@ export function NotesPanel({
           padding: 12,
           display: 'grid',
           gap: 6,
-          background: cardBg,
-          border: `1px solid ${cardBorder}`,
-          borderLeft: `4px solid ${cardBorderColor}`,
-          borderRadius: 12
+          background: 'var(--sf-surface)',
+          border: '1px solid var(--sf-line)',
+          borderLeft: `4px solid ${indicatorColor}`,
+          borderRadius: 12,
+          boxShadow: 'var(--sf-shadow-sm)'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -660,7 +649,7 @@ export function NotesPanel({
               background: 'none',
               border: 0,
               padding: 0,
-              color: isParking ? '#355877' : cardBorderColor,
+              color: isParking ? 'var(--sf-mint-strong)' : indicatorColor,
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -678,8 +667,9 @@ export function NotesPanel({
                   padding: '2px 6px',
                   borderRadius: 4,
                   fontWeight: 700,
-                  background: 'var(--sf-blue)',
-                  color: 'white'
+                  background: 'var(--sf-mint-soft)',
+                  color: 'var(--sf-mint-strong)',
+                  border: '1px solid var(--sf-mint)'
                 }}
               >
                 Active Parking
@@ -692,9 +682,9 @@ export function NotesPanel({
                   padding: '2px 6px',
                   borderRadius: 4,
                   fontWeight: 700,
-                  background: isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)',
-                  color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)',
-                  border: `1px solid ${isResolved ? 'rgba(111, 141, 119, 0.4)' : 'rgba(217, 131, 131, 0.4)'}`
+                  background: isResolved ? 'var(--sf-mint-soft)' : 'var(--sf-coral-soft)',
+                  color: isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)',
+                  border: `1px solid ${isResolved ? 'var(--sf-mint)' : 'var(--sf-coral)'}`
                 }}
               >
                 {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}

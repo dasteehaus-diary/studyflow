@@ -14,8 +14,7 @@ import {
   IconParkingNote,
   IconPencil,
   IconTrash,
-  IconArrowRight,
-  StickyNote
+  IconArrowRight
 } from '@/components/icons/BrandIcons';
 
 type PrimaryFilter = 'all' | 'highlights' | 'quick' | 'question' | 'parking';
@@ -218,43 +217,21 @@ export function NotebookPage() {
         Sổ tay tri thức
       </div>
 
-      {/* Header: Headline + Sticky Note */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) auto',
-          gap: 24,
-          alignItems: 'start',
-          marginBottom: 28
-        }}
-      >
-        <div>
-          <h1 style={{ margin: '0 0 10px' }}>
-            Ghi chú luôn nhớ rõ nguồn gốc từng trang sách.
-          </h1>
-          <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 600, lineHeight: 1.55 }}>
-            Tất cả trích dẫn, câu hỏi và suy nghĩ được lưu giữ nguyên văn kèm vị trí chính xác trong tài liệu gốc.
-          </p>
-        </div>
-
-        {/* Decorative Editorial Sticky Note */}
-        <div className="desktopOnly" style={{ maxWidth: 260, flexShrink: 0 }}>
-          <StickyNote>
-            <div style={{ fontStyle: 'italic', color: 'var(--ink)' }}>
-              “Mỗi ghi chú hay câu hỏi là một chiếc neo giúp bạn kết nối ý niệm mới mà không sợ quên gốc tích.”
-            </div>
-            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--terracotta)', textAlign: 'right' }}>
-              — Mạch suy nghĩ
-            </div>
-          </StickyNote>
-        </div>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ margin: '0 0 10px' }}>
+          Ghi chú luôn nhớ rõ nguồn gốc từng trang sách.
+        </h1>
+        <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 600, lineHeight: 1.55 }}>
+          Tất cả trích dẫn, câu hỏi và suy nghĩ được lưu giữ nguyên văn kèm vị trí chính xác trong tài liệu gốc.
+        </p>
       </div>
 
       {/* Search and Filters Section */}
       <div style={{ display: 'grid', gap: 14, marginBottom: 28 }}>
         {/* Search Bar */}
         <div style={{ position: 'relative', width: 'min(540px, 100%)' }}>
-          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', display: 'flex' }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--sf-muted)', display: 'flex' }}>
             <IconSearch size={18} />
           </span>
           <input
@@ -265,10 +242,12 @@ export function NotebookPage() {
             style={{
               width: '100%',
               padding: '10px 14px 10px 42px',
-              borderRadius: 24,
+              borderRadius: 999,
               fontSize: 14,
-              background: 'var(--panel)',
-              border: '1px solid var(--line)'
+              background: 'var(--sf-surface)',
+              border: '1px solid var(--sf-line)',
+              boxShadow: 'var(--sf-shadow-sm)',
+              color: 'var(--sf-ink)'
             }}
           />
         </div>
@@ -277,18 +256,18 @@ export function NotebookPage() {
         <div className="filterRow" style={{ margin: 0, gap: 8 }}>
           <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Loại:</span>
           {[
-            ['all', `Tất cả (${unifiedItems.length})`, 'var(--deep)', 'white'],
-            ['highlights', `Trích dẫn (${highlightsList.length})`, 'var(--sf-yellow-soft)', '#736d24'],
-            ['quick', 'Ghi chú', 'var(--sf-apricot-soft)', 'var(--sf-terracotta)'],
-            ['question', 'Câu hỏi', 'var(--sf-rose-soft)', 'var(--sf-rose)'],
-            ['parking', 'Parking Note', 'var(--sf-blue-soft)', '#355877']
-          ].map(([key, label, activeBg, activeColor]) => {
+            ['all', `Tất cả (${unifiedItems.length})`, 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)'],
+            ['highlights', `Trích dẫn (${highlightsList.length})`, 'var(--sf-yellow-soft)', '#8A7A28', 'var(--sf-yellow)'],
+            ['quick', 'Ghi chú', 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)'],
+            ['question', 'Câu hỏi', 'var(--sf-coral-soft)', 'var(--sf-coral)', 'var(--sf-coral)'],
+            ['parking', 'Parking Note', 'var(--sf-lime-soft)', '#6E7924', 'var(--sf-lime)']
+          ].map(([key, label, activeBg, activeColor, activeBorder]) => {
             const isAct = primaryFilter === key;
             return (
               <button
                 key={key}
                 className="pill"
-                style={isAct ? { background: activeBg, color: activeColor, borderColor: activeColor, fontWeight: 600 } : {}}
+                style={isAct ? { background: activeBg, color: activeColor, borderColor: activeBorder, fontWeight: 600 } : {}}
                 onClick={() => setPrimaryFilter(key as PrimaryFilter)}
               >
                 {label}
@@ -301,10 +280,10 @@ export function NotebookPage() {
         <div className="filterRow" style={{ margin: 0, gap: 8 }}>
           <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Trạng thái:</span>
           {[
-            ['all', 'Tất cả trạng thái', 'var(--deep)', 'white'],
-            ['open', 'Chưa giải quyết', 'var(--sf-rose-soft)', 'var(--sf-rose)'],
-            ['resolved', 'Đã giải quyết', 'var(--sf-sage-soft)', 'var(--sf-sage)']
-          ].map(([key, label, activeBg, activeColor]) => {
+            ['all', 'Tất cả trạng thái', 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)'],
+            ['open', 'Chưa giải quyết', 'var(--sf-coral-soft)', 'var(--sf-coral)', 'var(--sf-coral)'],
+            ['resolved', 'Đã giải quyết', 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)']
+          ].map(([key, label, activeBg, activeColor, activeBorder]) => {
             const isAct = statusFilter === key;
             return (
               <button
@@ -313,7 +292,7 @@ export function NotebookPage() {
                 style={{
                   fontSize: 12,
                   padding: '5px 12px',
-                  ...(isAct ? { background: activeBg, color: activeColor, borderColor: activeColor, fontWeight: 600 } : {})
+                  ...(isAct ? { background: activeBg, color: activeColor, borderColor: activeBorder, fontWeight: 600 } : {})
                 }}
                 onClick={() => setStatusFilter(key as StatusFilter)}
               >
@@ -358,46 +337,29 @@ export function NotebookPage() {
             const isResolved = item.status === 'resolved';
             const isEditing = editingNoteId === item.id;
 
-            // Semantic surface tinting (Section: Notebook)
-            const cardBg = isHighlight
-              ? 'var(--sf-yellow-soft)'
+            const indicatorColor = isHighlight
+              ? 'var(--sf-yellow)'
               : isParking
-              ? 'var(--sf-blue-soft)'
+              ? 'var(--sf-mint)'
               : isQuestion
-              ? (isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)')
-              : 'var(--sf-apricot-soft)';
-
-            const cardBorder = isHighlight
-              ? 'rgba(185, 178, 114, 0.35)'
-              : isParking
-              ? 'rgba(159, 180, 198, 0.35)'
-              : isQuestion
-              ? (isResolved ? 'rgba(111, 141, 119, 0.35)' : 'rgba(217, 131, 131, 0.35)')
-              : 'rgba(233, 161, 122, 0.35)';
-
-            const cardBorderColor = isHighlight
-              ? 'var(--sf-olive)'
-              : isParking
-              ? 'var(--sf-blue)'
-              : isQuestion
-              ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
-              : 'var(--sf-apricot)';
+              ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
+              : 'var(--sf-mint-strong)';
 
             const badgeBg = isHighlight
-              ? 'rgba(185, 178, 114, 0.25)'
+              ? 'var(--sf-yellow-soft)'
               : isParking
-              ? 'rgba(159, 180, 198, 0.25)'
+              ? 'var(--sf-mint-soft)'
               : isQuestion
-              ? (isResolved ? 'rgba(111, 141, 119, 0.25)' : 'rgba(217, 131, 131, 0.25)')
-              : 'rgba(233, 161, 122, 0.25)';
+              ? (isResolved ? 'var(--sf-mint-soft)' : 'var(--sf-coral-soft)')
+              : 'var(--sf-mint-soft)';
 
             const badgeColor = isHighlight
-              ? '#736d24'
+              ? '#8A7A28'
               : isParking
-              ? '#355877'
+              ? 'var(--sf-mint-strong)'
               : isQuestion
-              ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
-              : 'var(--sf-terracotta)';
+              ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
+              : 'var(--sf-mint-strong)';
 
             const targetUrl = `/reader/${item.documentId}?page=${item.page}&y=${item.y}${item.highlightId ? `&highlight=${item.highlightId}` : ''}`;
 
@@ -410,11 +372,12 @@ export function NotebookPage() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 12,
-                  background: cardBg,
-                  border: `1px solid ${cardBorder}`,
-                  borderLeft: `4px solid ${cardBorderColor}`,
-                  borderRadius: 14,
+                  background: 'var(--sf-surface)',
+                  border: '1px solid var(--sf-line)',
+                  borderLeft: `4px solid ${indicatorColor}`,
+                  borderRadius: 'var(--sf-radius-lg)',
                   position: 'relative',
+                  boxShadow: 'var(--sf-shadow-sm)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -447,8 +410,9 @@ export function NotebookPage() {
                           fontWeight: 700,
                           padding: '2px 6px',
                           borderRadius: 6,
-                          background: isResolved ? 'rgba(111, 141, 119, 0.25)' : 'rgba(217, 131, 131, 0.25)',
-                          color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)'
+                          background: isResolved ? 'var(--sf-mint-soft)' : 'var(--sf-coral-soft)',
+                          color: isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)',
+                          border: `1px solid ${isResolved ? 'var(--sf-mint)' : 'var(--sf-coral)'}`
                         }}
                       >
                         {isResolved ? '✓ Đã giải đáp' : 'Chưa giải quyết'}
@@ -467,13 +431,13 @@ export function NotebookPage() {
                     style={{
                       margin: 0,
                       padding: '8px 12px',
-                      background: 'var(--sf-surface)',
-                      borderLeft: `3px solid ${cardBorderColor}`,
+                      background: 'var(--sf-surface-soft)',
+                      borderLeft: `3px solid ${indicatorColor}`,
                       borderRadius: '0 8px 8px 0',
                       fontSize: 13,
                       fontStyle: 'italic',
                       lineHeight: 1.45,
-                      color: 'var(--ink)'
+                      color: 'var(--sf-ink)'
                     }}
                   >
                     “{item.quoteText}”
@@ -599,8 +563,8 @@ export function NotebookPage() {
                         padding: '4px 10px',
                         borderRadius: 8,
                         fontWeight: 600,
-                        color: 'var(--terracotta)',
-                        borderColor: 'var(--line)',
+                        color: 'var(--sf-mint-strong)',
+                        borderColor: 'var(--sf-line)',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 4

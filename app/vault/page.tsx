@@ -6,7 +6,7 @@ import { AppShell } from '@/components/AppShell';
 import { localDB, type LocalUnlockedReward, type LocalDocument } from '@/lib/db/local';
 import { playRewardSound } from '@/lib/rewards/audio-synth';
 import { formatRelativeTime } from '@/lib/utils/time';
-import { IconBSide, IconCassetteLogo, IconClose, StickyNote } from '@/components/icons/BrandIcons';
+import { IconBSide, IconCassetteLogo, IconClose } from '@/components/icons/BrandIcons';
 
 type VaultFilter = 'all' | 'unlocked' | 'mystery';
 
@@ -53,39 +53,17 @@ export function VaultPage() {
         Kho báu B-Side
       </div>
 
-      {/* Header: Headline + Sticky Note */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) auto',
-          gap: 24,
-          alignItems: 'start',
-          marginBottom: 28
-        }}
-      >
-        <div>
-          <h1 style={{ margin: '0 0 10px' }}>
-            Kho B-Side · Đã khám phá: {unlockedRewards.length} / ???
-          </h1>
-          <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 620, lineHeight: 1.55 }}>
-            Mỗi khi bạn hoàn thành một cuộn băng (Finish Tape), một món quà bất ngờ từ mặt B sẽ được mở khóa và cất giữ vĩnh viễn trong bộ sưu tập này.
-          </p>
-        </div>
-
-        {/* Decorative Editorial Sticky Note */}
-        <div className="desktopOnly" style={{ maxWidth: 260, flexShrink: 0 }}>
-          <StickyNote>
-            <div style={{ fontStyle: 'italic', color: 'var(--ink)' }}>
-              “Mặt B luôn dành cho những bất ngờ nhỏ, bài học thú vị và những kỷ niệm gom được trên hành trình.”
-            </div>
-            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--terracotta)', textAlign: 'right' }}>
-              — B-Side Vault
-            </div>
-          </StickyNote>
-        </div>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ margin: '0 0 10px' }}>
+          Kho B-Side · Đã khám phá: {unlockedRewards.length} / ???
+        </h1>
+        <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 620, lineHeight: 1.55 }}>
+          Mỗi khi bạn hoàn thành một cuộn băng (Finish Tape), một món quà bất ngờ từ mặt B sẽ được mở khóa và cất giữ vĩnh viễn trong bộ sưu tập này.
+        </p>
       </div>
 
-      {/* Filter Row: Tất cả, Đã khám phá, Chưa khám phá (Section 12: No rarity UI!) */}
+      {/* Filter Row: Tất cả, Đã khám phá, Chưa khám phá */}
       <div className="filterRow" style={{ marginBottom: 26 }}>
         {[
           ['all', `Tất cả`],
@@ -109,19 +87,18 @@ export function VaultPage() {
         </div>
       ) : (
         <div className="vaultGrid">
-          {/* Unlocked Cards with Pastel Surface Rotation */}
+          {/* Unlocked Cards with Clean White Base and Soft Pastel Artwork */}
           {(filter === 'all' || filter === 'unlocked') &&
             unlockedRewards.map((reward, idx) => {
               const payload = reward.payload as Record<string, unknown>;
               const icon = (payload.icon as string) || '🎁';
-              const PASTEL_ROTATION = [
-                { bg: 'var(--sf-lavender-soft)', border: 'rgba(200, 190, 216, 0.45)' },
-                { bg: 'var(--sf-coral-soft)', border: 'rgba(232, 154, 141, 0.45)' },
-                { bg: 'var(--sf-dusty-blue-soft)', border: 'rgba(175, 196, 212, 0.45)' },
-                { bg: 'var(--sf-sage-soft)', border: 'rgba(169, 189, 165, 0.45)' },
-                { bg: 'var(--sf-butter-soft)', border: 'rgba(242, 223, 166, 0.55)' }
+              const ARTWORK_TINTS = [
+                'var(--sf-mint-soft)',
+                'var(--sf-lime-soft)',
+                'var(--sf-coral-soft)',
+                'var(--sf-yellow-soft)'
               ];
-              const pastel = PASTEL_ROTATION[idx % PASTEL_ROTATION.length];
+              const tint = ARTWORK_TINTS[idx % ARTWORK_TINTS.length];
 
               return (
                 <div
@@ -129,16 +106,16 @@ export function VaultPage() {
                   className="card"
                   style={{
                     padding: 16,
-                    borderRadius: 16,
+                    borderRadius: 'var(--sf-radius-lg)',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     textAlign: 'center',
-                    background: pastel.bg,
-                    border: `1px solid ${pastel.border}`,
+                    background: 'var(--sf-surface)',
+                    border: '1px solid var(--sf-line)',
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                    boxShadow: 'var(--shadow)'
+                    boxShadow: 'var(--sf-shadow-sm)'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -146,7 +123,7 @@ export function VaultPage() {
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow)';
+                    e.currentTarget.style.boxShadow = 'var(--sf-shadow-sm)';
                   }}
                   onClick={() => {
                     setActiveModalReward(reward);
@@ -160,9 +137,9 @@ export function VaultPage() {
                     style={{
                       width: '100%',
                       aspectRatio: '1',
-                      borderRadius: 12,
-                      background: 'var(--sf-surface)',
-                      border: `1px dashed ${pastel.border}`,
+                      borderRadius: 14,
+                      background: tint,
+                      border: '1px solid var(--sf-line)',
                       display: 'grid',
                       placeItems: 'center',
                       fontSize: 48,

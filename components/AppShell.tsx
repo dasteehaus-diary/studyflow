@@ -8,15 +8,14 @@ import {
   IconBookshelf,
   IconNotebook,
   IconBSide,
-  IconSettings,
-  DecoCatOnBooks
+  IconSettings
 } from '@/components/icons/BrandIcons';
 
 const navItems = [
-  { label: 'Kệ sách', href: '/', Icon: IconBookshelf, activeClass: 'navBookshelf' },
-  { label: 'Ghi chép', href: '/notebook', Icon: IconNotebook, activeClass: 'navNotebook' },
-  { label: 'Kho B-Side', href: '/vault', Icon: IconBSide, activeClass: 'navVault' },
-  { label: 'Cài đặt', href: '/settings', Icon: IconSettings, activeClass: 'navSettings' }
+  { label: 'Kệ sách', href: '/', Icon: IconBookshelf },
+  { label: 'Ghi chép', href: '/notebook', Icon: IconNotebook },
+  { label: 'Kho B-Side', href: '/vault', Icon: IconBSide },
+  { label: 'Cài đặt', href: '/settings', Icon: IconSettings }
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -41,27 +40,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   width: 34,
                   height: 34,
                   borderRadius: 10,
-                  background: 'var(--terracotta)',
+                  background: 'var(--sf-mint-strong)',
                   color: 'white',
                   display: 'grid',
                   placeItems: 'center',
-                  boxShadow: '0 2px 8px rgba(189, 87, 56, 0.25)'
+                  boxShadow: '0 2px 8px rgba(120, 153, 142, 0.25)'
                 }}
               >
                 <IconCassetteLogo size={20} />
               </div>
-              <span style={{ letterSpacing: '-0.02em', fontWeight: 700 }}>StudyFlow</span>
+              <span style={{ letterSpacing: '-0.02em', fontWeight: 700, fontSize: 18 }}>StudyFlow</span>
             </Link>
           </div>
 
           <nav className="nav">
-            {navItems.map(({ label, href, Icon, activeClass }) => {
+            {navItems.map(({ label, href, Icon }) => {
               const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={isActive ? `navActive ${activeClass}` : ''}
+                  className={isActive ? 'navActive' : ''}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   <Icon size={19} />
@@ -72,11 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* Sidebar Footer with Deco & Auth */}
-        <div style={{ display: 'grid', gap: 14 }}>
-          <div className="sidebar-deco" style={{ display: 'flex', justifyContent: 'center', opacity: 0.85 }}>
-            <DecoCatOnBooks />
-          </div>
+        {/* Sidebar Footer with Clean Minimal Auth */}
+        <div style={{ display: 'grid', gap: 12 }}>
           <div className="sidebar-auth">
             <AuthButton />
           </div>

@@ -8,7 +8,7 @@ import { DocumentCard } from '@/components/DocumentCard';
 import { ImportPdfModal } from '@/components/ImportPdfModal';
 import { localDB, type LocalDocument, type LocalProgress, type LocalNote } from '@/lib/db/local';
 import { selectContinueDocument } from '@/lib/documents/selectors';
-import { IconSearch, IconPlus, IconCassetteLogo, StickyNote } from '@/components/icons/BrandIcons';
+import { IconSearch, IconPlus, IconCassetteLogo } from '@/components/icons/BrandIcons';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -104,7 +104,7 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      {/* Top Bar with optional Search */}
+      {/* Top Bar with Search */}
       <div
         style={{
           display: 'flex',
@@ -117,7 +117,7 @@ export default function HomePage() {
         <div className="eyebrow">Thư viện cá nhân</div>
 
         <div style={{ position: 'relative', width: 'min(280px, 100%)' }}>
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none', display: 'flex' }}>
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--sf-muted)', pointerEvents: 'none', display: 'flex' }}>
             <IconSearch size={16} />
           </span>
           <input
@@ -128,46 +128,26 @@ export default function HomePage() {
             aria-label="Tìm kiếm tài liệu"
             style={{
               width: '100%',
-              padding: '7px 12px 7px 34px',
-              borderRadius: 20,
+              padding: '8px 14px 8px 36px',
+              borderRadius: 999,
               fontSize: 13,
-              background: 'var(--panel)',
-              border: '1px solid var(--line)'
+              background: 'var(--sf-surface)',
+              border: '1px solid var(--sf-line)',
+              boxShadow: 'var(--sf-shadow-sm)',
+              color: 'var(--sf-ink)'
             }}
           />
         </div>
       </div>
 
-      {/* Hero Section: Headline + Editorial Sticky Note */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) auto',
-          gap: 24,
-          alignItems: 'start',
-          marginBottom: 28
-        }}
-      >
-        <div>
-          <h1 style={{ margin: '0 0 10px' }}>
-            Tiếp tục đúng nơi suy nghĩ của bạn dừng lại.
-          </h1>
-          <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 580, lineHeight: 1.55 }}>
-            Mỗi trang đọc là một cuộn băng được giữ nguyên mạch suy nghĩ. Bạn không cần đọc liên tục, chỉ cần dễ dàng quay lại.
-          </p>
-        </div>
-
-        {/* Decorative Editorial Sticky Note (Section 15) */}
-        <div className="desktopOnly" style={{ maxWidth: 260, flexShrink: 0 }}>
-          <StickyNote>
-            <div style={{ fontStyle: 'italic', color: 'var(--ink)' }}>
-              “Quan trọng không phải đọc được bao nhiêu trang một ngày, mà là có thể tiếp tục bất cứ lúc nào mà không lạc lối.”
-            </div>
-            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--terracotta)', textAlign: 'right' }}>
-              — Resume &gt; Track
-            </div>
-          </StickyNote>
-        </div>
+      {/* Hero Section */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ margin: '0 0 10px' }}>
+          Tiếp tục nơi bạn đang dở.
+        </h1>
+        <p className="muted" style={{ margin: 0, fontSize: 15, maxWidth: 580, lineHeight: 1.55 }}>
+          StudyFlow nhớ vị trí, ghi chú và mạch suy nghĩ để bạn quay lại dễ dàng.
+        </p>
       </div>
 
       {/* Continue Card (Focal Point) */}
@@ -186,7 +166,7 @@ export default function HomePage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 12,
-          marginTop: 20,
+          marginTop: 24,
           marginBottom: 16
         }}
       >
@@ -196,11 +176,11 @@ export default function HomePage() {
             style={{
               fontSize: 12,
               fontWeight: 700,
-              background: 'var(--card-subtle)',
-              border: '1px solid var(--line)',
+              background: 'var(--sf-surface-soft)',
+              border: '1px solid var(--sf-line)',
               padding: '2px 8px',
               borderRadius: 12,
-              color: 'var(--muted)'
+              color: 'var(--sf-muted)'
             }}
           >
             {filteredDocuments.length}
@@ -224,7 +204,7 @@ export default function HomePage() {
       <div className="filterRow">
         <button
           className="pill"
-          style={selectedTag === 'All' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)', fontWeight: 600 } : {}}
+          style={selectedTag === 'All' ? { background: 'var(--sf-mint-soft)', color: 'var(--sf-mint-strong)', borderColor: 'var(--sf-mint)', fontWeight: 600 } : {}}
           onClick={() => setSelectedTag('All')}
         >
           Tất cả
@@ -235,7 +215,7 @@ export default function HomePage() {
             <button
               key={tag}
               className="pill"
-              style={isAct ? { background: 'var(--sf-apricot-soft)', color: 'var(--sf-terracotta)', borderColor: 'var(--sf-apricot)', fontWeight: 600 } : {}}
+              style={isAct ? { background: 'var(--sf-mint-soft)', color: 'var(--sf-mint-strong)', borderColor: 'var(--sf-mint)', fontWeight: 600 } : {}}
               onClick={() => setSelectedTag(tag)}
             >
               {tag}
@@ -244,7 +224,7 @@ export default function HomePage() {
         })}
         <button
           className="pill"
-          style={selectedTag === 'Archived' ? { background: 'var(--card-subtle)', color: 'var(--ink)', borderColor: 'var(--muted)', fontWeight: 600 } : {}}
+          style={selectedTag === 'Archived' ? { background: 'var(--sf-mint-soft)', color: 'var(--sf-mint-strong)', borderColor: 'var(--sf-mint)', fontWeight: 600 } : {}}
           onClick={() => setSelectedTag('Archived')}
         >
           📦 Đã lưu trữ
@@ -269,10 +249,10 @@ export default function HomePage() {
               width: 54,
               height: 54,
               borderRadius: 16,
-              background: 'var(--card-subtle)',
+              background: 'var(--sf-mint-soft)',
               display: 'grid',
               placeItems: 'center',
-              color: 'var(--terracotta)',
+              color: 'var(--sf-mint-strong)',
               margin: '0 auto'
             }}
           >
@@ -314,11 +294,13 @@ export default function HomePage() {
               style={{
                 display: 'grid',
                 placeItems: 'center',
-                color: 'var(--muted)',
+                color: 'var(--sf-muted)',
                 cursor: 'pointer',
                 borderStyle: 'dashed',
                 borderWidth: '1.5px',
+                borderColor: 'var(--sf-line)',
                 background: 'transparent',
+                borderRadius: 'var(--sf-radius-lg)',
                 minHeight: 280
               }}
               onClick={() => {
@@ -332,18 +314,18 @@ export default function HomePage() {
                     width: 44,
                     height: 44,
                     borderRadius: '50%',
-                    background: 'var(--card-subtle)',
-                    border: '1px solid var(--line)',
+                    background: 'var(--sf-surface-soft)',
+                    border: '1px solid var(--sf-line)',
                     display: 'grid',
                     placeItems: 'center',
                     margin: '0 auto 10px',
-                    color: 'var(--ink)'
+                    color: 'var(--sf-mint-strong)'
                   }}
                 >
                   <IconPlus size={22} />
                 </div>
-                <strong style={{ display: 'block', fontSize: 14, color: 'var(--ink)' }}>Thêm PDF mới</strong>
-                <div style={{ fontSize: 12, marginTop: 4, color: 'var(--muted)' }}>Lưu trữ an toàn qua OPFS</div>
+                <strong style={{ display: 'block', fontSize: 14, color: 'var(--sf-ink)' }}>Thêm PDF mới</strong>
+                <div style={{ fontSize: 12, marginTop: 4, color: 'var(--sf-muted)' }}>Lưu trữ an toàn qua OPFS</div>
               </div>
             </div>
           </div>

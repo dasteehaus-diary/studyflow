@@ -26,7 +26,11 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
       style={{
         marginBottom: 32,
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        background: 'var(--sf-surface)',
+        border: '1px solid var(--sf-line)',
+        borderRadius: 20,
+        boxShadow: 'var(--shadow)'
       }}
       aria-label="Tài liệu đang đọc dở"
     >
@@ -34,10 +38,11 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
       <div
         className="cover"
         style={{
-          background: document.thumbnail ? '#2c2a26' : 'linear-gradient(145deg, var(--sage, #5E7F68), #385041)',
+          background: document.thumbnail ? '#242a27' : 'linear-gradient(145deg, var(--sf-mint), #5A7E72)',
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: 'inset 3px 0 6px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)'
+          borderRadius: 14,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
         }}
       >
         {document.thumbnail ? (
@@ -74,18 +79,24 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
 
       {/* Main Info */}
       <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-        <div className="eyebrow" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
-              color: isCompleted ? 'var(--sage)' : 'var(--terracotta)'
+              gap: 4,
+              background: 'var(--sf-mint-soft)',
+              color: 'var(--sf-mint-strong)',
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: 6,
+              letterSpacing: '0.02em'
             }}
           >
             {isCompleted ? '✓ ĐÃ HOÀN THÀNH' : '▶ TIẾP TỤC ĐỌC'}
           </span>
-          <span style={{ textTransform: 'none', fontWeight: 'normal', color: 'var(--muted)' }}>
+          <span className="muted" style={{ fontSize: 12 }}>
             · {lastActive}
           </span>
         </div>
@@ -93,12 +104,14 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
         <h3
           style={{
             margin: 0,
+            fontSize: 20,
+            fontWeight: 700,
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             wordBreak: 'break-word',
-            lineHeight: 1.25
+            lineHeight: 1.3
           }}
           title={document.title}
         >
@@ -110,23 +123,22 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <div
             style={{
               fontSize: 13,
-              background: 'var(--sf-surface)',
+              background: 'var(--sf-surface-soft)',
               padding: '8px 12px',
               borderRadius: 10,
-              border: '1px solid rgba(159, 180, 198, 0.35)',
-              borderLeft: '3px solid var(--sf-blue)',
+              border: '1px solid var(--sf-line)',
+              borderLeft: '3px solid var(--sf-mint-strong)',
               color: 'var(--ink)',
               display: 'flex',
               alignItems: 'flex-start',
-              gap: 8,
-              boxShadow: 'var(--shadow-sm)'
+              gap: 8
             }}
           >
-            <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--sf-blue)' }}>
+            <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--sf-mint-strong)' }}>
               <IconParkingNote size={16} />
             </span>
             <div style={{ wordBreak: 'break-word' }}>
-              <span style={{ fontWeight: 600, color: 'var(--sf-blue)' }}>Lần trước:</span> “
+              <span style={{ fontWeight: 600, color: 'var(--sf-mint-strong)' }}>Lần trước:</span> “
               {activeParkingNote.noteText}”
             </div>
           </div>
@@ -138,7 +150,7 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
 
         {/* Cassette Reading Position */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 2 }}>
-          <div style={{ width: 'min(200px, 100%)' }}>
+          <div style={{ width: 'min(180px, 100%)' }}>
             <CassetteProgress value={pct} variant="mini" />
           </div>
           <span className="muted" style={{ fontSize: 12, fontWeight: 500 }}>
@@ -147,14 +159,14 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
         </div>
       </div>
 
-      {/* CTA Button (Sage Green) */}
+      {/* CTA Button (Mint Strong) */}
       <Link
         className="primary"
         href={`/reader/${document.id}`}
         style={{
           whiteSpace: 'nowrap',
-          padding: '12px 20px',
-          boxShadow: '0 4px 14px rgba(111, 141, 119, 0.28)'
+          padding: '11px 20px',
+          boxShadow: '0 4px 14px rgba(120, 153, 142, 0.28)'
         }}
       >
         <IconResume size={18} />

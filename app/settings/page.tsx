@@ -424,19 +424,33 @@ export default function SettingsPage() {
       <div className="settingsLayout">
         {/* Left Column: Settings Groups */}
         <div style={{ display: 'grid', gap: 24 }}>
-          {/* GROUP A: Giao diện & Trải nghiệm đọc (Surface: dusty-blue-soft) */}
+          {/* GROUP A: Giao diện & Trải nghiệm đọc */}
           {(activeTab === 'all' || activeTab === 'appearance') && (
             <section
               className="card"
               style={{
                 padding: '24px 26px',
-                background: 'var(--sf-dusty-blue-soft)',
-                border: '1px solid rgba(175, 196, 212, 0.45)',
-                borderRadius: 20
+                background: 'var(--sf-surface)',
+                border: '1px solid var(--sf-line)',
+                borderRadius: 'var(--sf-radius-lg)',
+                boxShadow: 'var(--sf-shadow-sm)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>🎨</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'var(--sf-mint-soft)',
+                    color: 'var(--sf-mint-strong)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  🎨
+                </div>
                 <h3 style={{ margin: 0 }}>Giao diện &amp; Trải nghiệm đọc</h3>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -528,19 +542,33 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* GROUP B1: Đồng bộ đám mây & Tài khoản (Surface: sage-soft) */}
+          {/* GROUP B1: Đồng bộ đám mây & Tài khoản */}
           {(activeTab === 'all' || activeTab === 'sync') && (
             <section
               className="card"
               style={{
                 padding: '24px 26px',
-                background: 'var(--sf-sage-soft)',
-                border: '1px solid rgba(169, 189, 165, 0.45)',
-                borderRadius: 20
+                background: 'var(--sf-surface)',
+                border: '1px solid var(--sf-line)',
+                borderRadius: 'var(--sf-radius-lg)',
+                boxShadow: 'var(--sf-shadow-sm)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>☁️</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'var(--sf-mint-soft)',
+                    color: 'var(--sf-mint-strong)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  ☁️
+                </div>
                 <h3 style={{ margin: 0 }}>Đồng bộ đám mây &amp; Tài khoản</h3>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -613,19 +641,33 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* GROUP B2: Nhắc quay lại qua Telegram (Surface: coral-soft) */}
+          {/* GROUP B2: Nhắc quay lại qua Telegram */}
           {(activeTab === 'all' || activeTab === 'reminder') && (
             <section
               className="card"
               style={{
                 padding: '24px 26px',
-                background: 'var(--sf-coral-soft)',
-                border: '1px solid rgba(232, 154, 141, 0.45)',
-                borderRadius: 20
+                background: 'var(--sf-surface)',
+                border: '1px solid var(--sf-line)',
+                borderRadius: 'var(--sf-radius-lg)',
+                boxShadow: 'var(--sf-shadow-sm)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>💌</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'var(--sf-coral-soft)',
+                    color: 'var(--sf-coral)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  💌
+                </div>
                 <h3 style={{ margin: 0 }}>Nhắc nhở quay lại qua Telegram</h3>
               </div>
               <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, margin: '0 0 16px' }}>
@@ -723,19 +765,33 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* GROUP C: Lưu trữ & Sao lưu dữ liệu (Surface: sage-soft) */}
+          {/* GROUP C: Lưu trữ & Sao lưu dữ liệu */}
           {(activeTab === 'all' || activeTab === 'data') && (
             <section
               className="card"
               style={{
                 padding: '24px 26px',
-                background: 'var(--sf-sage-soft)',
-                border: '1px solid rgba(169, 189, 165, 0.45)',
-                borderRadius: 20
+                background: 'var(--sf-surface)',
+                border: '1px solid var(--sf-line)',
+                borderRadius: 'var(--sf-radius-lg)',
+                boxShadow: 'var(--sf-shadow-sm)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>📦</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'var(--sf-mint-soft)',
+                    color: 'var(--sf-mint-strong)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  📦
+                </div>
                 <h3 style={{ margin: 0 }}>Lưu trữ &amp; Sao lưu dữ liệu</h3>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -898,20 +954,34 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* GROUP D: Vùng nguy hiểm / Danger Zone (Surface: very light coral) */}
+          {/* GROUP D: Vùng nguy hiểm / Danger Zone */}
           {(activeTab === 'all' || activeTab === 'data') && (
             <section
               className="card"
               style={{
                 padding: '22px 26px',
-                background: 'rgba(232, 154, 141, 0.16)',
-                border: '1px solid rgba(217, 104, 90, 0.35)',
-                borderRadius: 20
+                background: 'var(--sf-surface)',
+                border: '1px solid rgba(230, 154, 141, 0.4)',
+                borderRadius: 'var(--sf-radius-lg)',
+                boxShadow: 'var(--sf-shadow-sm)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>⚠️</span>
-                <h3 style={{ margin: 0, color: 'var(--sf-danger)' }}>Vùng nguy hiểm</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'var(--sf-coral-soft)',
+                    color: 'var(--sf-coral)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 18
+                  }}
+                >
+                  ⚠️
+                </div>
+                <h3 style={{ margin: 0, color: 'var(--sf-coral)' }}>Vùng nguy hiểm</h3>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>
                 Dọn dẹp sạch sẽ toàn bộ file PDF, tiến độ cuộn băng, ghi chú, highlight và kho B-Side thử nghiệm khỏi máy này.
@@ -930,20 +1000,33 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Right Column: Sticky System Status Panel (Section 15) */}
+        {/* Right Column: Sticky System Status Panel */}
         <aside className="settingsStickyStatus">
           <section
             className="card"
             style={{
               padding: '24px 22px',
-              borderRadius: 20,
+              borderRadius: 'var(--sf-radius-lg)',
               background: 'var(--sf-surface)',
-              border: '1px solid var(--line)',
-              boxShadow: 'var(--shadow)'
+              border: '1px solid var(--sf-line)',
+              boxShadow: 'var(--sf-shadow-sm)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 18 }}>📊</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: 'var(--sf-mint-soft)',
+                  color: 'var(--sf-mint-strong)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 18
+                }}
+              >
+                📊
+              </div>
               <h3 style={{ margin: 0, fontSize: 17 }}>Trạng thái StudyFlow</h3>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: '0 0 18px' }}>
