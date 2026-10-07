@@ -257,7 +257,10 @@ export function HighlightNotePopover({
               alignItems: 'center',
               gap: 4,
               textDecoration: 'none',
-              borderRadius: 8
+              borderRadius: 8,
+              background: 'var(--sf-blue-soft)',
+              color: '#355877',
+              border: '1px solid rgba(159, 180, 198, 0.4)'
             }}
             title="Mở trong Sổ tay tri thức"
           >
@@ -426,7 +429,13 @@ export function HighlightNotePopover({
                   <button
                     type="button"
                     className="secondary"
-                    style={{ fontSize: 11, padding: '4px 8px', color: 'var(--rose)' }}
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      color: 'var(--sf-rose)',
+                      background: 'var(--sf-rose-soft)',
+                      border: '1px solid rgba(217, 131, 131, 0.4)'
+                    }}
                     onClick={() => handleCreate('question')}
                     disabled={isSubmitting}
                     title="Lưu dưới dạng câu hỏi"
@@ -436,7 +445,13 @@ export function HighlightNotePopover({
                   <button
                     type="button"
                     className="primary"
-                    style={{ fontSize: 11, padding: '4px 12px' }}
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 12px',
+                      background: 'var(--sf-apricot)',
+                      color: 'white',
+                      border: 0
+                    }}
                     onClick={() => handleCreate('quick')}
                     disabled={isSubmitting}
                   >
@@ -454,8 +469,15 @@ export function HighlightNotePopover({
           {isQuestion && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span
-                className={`verifyBadge ${isResolved ? 'pass' : 'fail'}`}
-                style={{ fontSize: 10, padding: '2px 8px' }}
+                style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  fontWeight: 700,
+                  background: isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)',
+                  color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)',
+                  border: `1px solid ${isResolved ? 'rgba(111, 141, 119, 0.4)' : 'rgba(217, 131, 131, 0.4)'}`
+                }}
               >
                 {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}
               </span>
@@ -466,8 +488,9 @@ export function HighlightNotePopover({
                 style={{
                   fontSize: 10,
                   padding: '2px 8px',
-                  color: isResolved ? 'var(--muted)' : 'var(--olive)',
-                  border: '1px solid var(--line)'
+                  color: isResolved ? 'var(--muted)' : 'var(--sf-sage)',
+                  background: isResolved ? 'var(--card-subtle)' : 'var(--sf-sage-soft)',
+                  border: `1px solid ${isResolved ? 'var(--line)' : 'rgba(111, 141, 119, 0.4)'}`
                 }}
                 onClick={() => onToggleQuestionStatus(linkedNote)}
               >

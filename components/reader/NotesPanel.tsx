@@ -475,7 +475,11 @@ export function NotesPanel({
             <button
               type="button"
               className="pill"
-              style={{ fontSize: 11, padding: '3px 8px', ...(composerType === 'quick' ? { background: 'var(--deep)', color: 'white' } : {}) }}
+              style={{
+                fontSize: 11,
+                padding: '3px 8px',
+                ...(composerType === 'quick' ? { background: 'var(--sf-apricot)', color: 'white', borderColor: 'var(--sf-apricot)' } : {})
+              }}
               onClick={() => setComposerType('quick')}
             >
               ✎ Quick Note
@@ -483,7 +487,11 @@ export function NotesPanel({
             <button
               type="button"
               className="pill"
-              style={{ fontSize: 11, padding: '3px 8px', ...(composerType === 'question' ? { background: 'var(--rose)', color: 'white' } : {}) }}
+              style={{
+                fontSize: 11,
+                padding: '3px 8px',
+                ...(composerType === 'question' ? { background: 'var(--sf-rose)', color: 'white', borderColor: 'var(--sf-rose)' } : {})
+              }}
               onClick={() => setComposerType('question')}
             >
               ❓ Câu hỏi
@@ -491,7 +499,11 @@ export function NotesPanel({
             <button
               type="button"
               className="pill"
-              style={{ fontSize: 11, padding: '3px 8px', ...(composerType === 'parking' ? { background: 'var(--terracotta)', color: 'white' } : {}) }}
+              style={{
+                fontSize: 11,
+                padding: '3px 8px',
+                ...(composerType === 'parking' ? { background: 'var(--sf-blue)', color: 'white', borderColor: 'var(--sf-blue)' } : {})
+              }}
               onClick={() => setComposerType('parking')}
             >
               📌 Parking Note
@@ -502,7 +514,7 @@ export function NotesPanel({
             <div
               style={{
                 fontSize: 12,
-                borderLeft: '3px solid var(--apricot)',
+                borderLeft: '3px solid var(--sf-apricot)',
                 paddingLeft: 8,
                 color: 'var(--muted)',
                 maxHeight: 60,
@@ -552,7 +564,18 @@ export function NotesPanel({
               <button
                 type="submit"
                 className="primary"
-                style={{ fontSize: 12, padding: '4px 10px' }}
+                style={{
+                  fontSize: 12,
+                  padding: '4px 12px',
+                  background:
+                    composerType === 'parking'
+                      ? 'var(--sf-blue)'
+                      : composerType === 'question'
+                      ? 'var(--sf-rose)'
+                      : 'var(--sf-apricot)',
+                  color: 'white',
+                  border: 0
+                }}
               >
                 Lưu
               </button>
@@ -598,6 +621,24 @@ export function NotesPanel({
     const isResolved = note.status === 'resolved';
     const isEditing = editingNoteId === note.id;
 
+    const cardBg = isParking
+      ? 'var(--sf-blue-soft)'
+      : isQuestion
+      ? (isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)')
+      : 'var(--sf-apricot-soft)';
+
+    const cardBorder = isParking
+      ? 'rgba(159, 180, 198, 0.35)'
+      : isQuestion
+      ? (isResolved ? 'rgba(111, 141, 119, 0.35)' : 'rgba(217, 131, 131, 0.35)')
+      : 'rgba(233, 161, 122, 0.35)';
+
+    const cardBorderColor = isParking
+      ? 'var(--sf-blue)'
+      : isQuestion
+      ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
+      : 'var(--sf-apricot)';
+
     return (
       <div
         key={note.id}
@@ -606,11 +647,10 @@ export function NotesPanel({
           padding: 12,
           display: 'grid',
           gap: 6,
-          borderLeft: isParking
-            ? '4px solid var(--terracotta)'
-            : isQuestion
-            ? `4px solid ${isResolved ? 'var(--olive)' : 'var(--rose)'}`
-            : '4px solid var(--apricot)'
+          background: cardBg,
+          border: `1px solid ${cardBorder}`,
+          borderLeft: `4px solid ${cardBorderColor}`,
+          borderRadius: 12
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -620,7 +660,7 @@ export function NotesPanel({
               background: 'none',
               border: 0,
               padding: 0,
-              color: 'var(--terracotta)',
+              color: isParking ? '#355877' : cardBorderColor,
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -632,14 +672,30 @@ export function NotesPanel({
 
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {isParking && note.isActiveParking && (
-              <span className="verifyBadge pass" style={{ fontSize: 9, padding: '2px 6px' }}>
+              <span
+                style={{
+                  fontSize: 9,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  fontWeight: 700,
+                  background: 'var(--sf-blue)',
+                  color: 'white'
+                }}
+              >
                 Active Parking
               </span>
             )}
             {isQuestion && (
               <span
-                className={`verifyBadge ${isResolved ? 'pass' : 'fail'}`}
-                style={{ fontSize: 9, padding: '2px 6px' }}
+                style={{
+                  fontSize: 9,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  fontWeight: 700,
+                  background: isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)',
+                  color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)',
+                  border: `1px solid ${isResolved ? 'rgba(111, 141, 119, 0.4)' : 'rgba(217, 131, 131, 0.4)'}`
+                }}
               >
                 {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}
               </span>

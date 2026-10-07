@@ -109,11 +109,20 @@ export function VaultPage() {
         </div>
       ) : (
         <div className="vaultGrid">
-          {/* Unlocked Cards */}
+          {/* Unlocked Cards with Pastel Surface Rotation */}
           {(filter === 'all' || filter === 'unlocked') &&
-            unlockedRewards.map((reward) => {
+            unlockedRewards.map((reward, idx) => {
               const payload = reward.payload as Record<string, unknown>;
               const icon = (payload.icon as string) || '🎁';
+              const PASTEL_ROTATION = [
+                { bg: 'var(--sf-sage-soft)', border: 'rgba(111, 141, 119, 0.35)' },
+                { bg: 'var(--sf-blue-soft)', border: 'rgba(159, 180, 198, 0.35)' },
+                { bg: 'var(--sf-rose-soft)', border: 'rgba(217, 131, 131, 0.35)' },
+                { bg: 'var(--sf-apricot-soft)', border: 'rgba(233, 161, 122, 0.35)' },
+                { bg: 'var(--sf-olive-soft)', border: 'rgba(185, 178, 114, 0.35)' },
+                { bg: 'var(--sf-yellow-soft)', border: 'rgba(246, 223, 162, 0.45)' }
+              ];
+              const pastel = PASTEL_ROTATION[idx % PASTEL_ROTATION.length];
 
               return (
                 <div
@@ -127,8 +136,8 @@ export function VaultPage() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     textAlign: 'center',
-                    background: 'var(--panel)',
-                    border: '1px solid var(--line)',
+                    background: pastel.bg,
+                    border: `1px solid ${pastel.border}`,
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                     boxShadow: 'var(--shadow)'
                   }}
@@ -153,8 +162,8 @@ export function VaultPage() {
                       width: '100%',
                       aspectRatio: '1',
                       borderRadius: 12,
-                      background: 'var(--card-subtle)',
-                      border: '1px dashed var(--line)',
+                      background: 'var(--sf-surface)',
+                      border: `1px dashed ${pastel.border}`,
                       display: 'grid',
                       placeItems: 'center',
                       fontSize: 48,
@@ -190,7 +199,7 @@ export function VaultPage() {
                   textAlign: 'center',
                   background: 'var(--card-subtle)',
                   border: '1.5px dashed var(--line)',
-                  opacity: 0.65,
+                  opacity: 0.75,
                   cursor: 'default',
                   userSelect: 'none'
                 }}
@@ -200,11 +209,12 @@ export function VaultPage() {
                     width: '100%',
                     aspectRatio: '1',
                     borderRadius: 12,
-                    background: 'transparent',
+                    background: 'var(--panel)',
                     border: '1px dashed var(--line)',
                     display: 'grid',
                     placeItems: 'center',
-                    color: 'var(--muted)',
+                    color: 'var(--sf-terracotta)',
+                    opacity: 0.8,
                     marginBottom: 12
                   }}
                 >

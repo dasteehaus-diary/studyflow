@@ -1151,7 +1151,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                 gap: 6,
                 padding: '6px 12px',
                 marginLeft: 4,
-                ...(notesOpen ? { background: 'var(--deep)', color: 'white' } : {})
+                ...(notesOpen ? { background: 'var(--sf-apricot-soft)', color: 'var(--sf-terracotta)', borderColor: 'rgba(233, 161, 122, 0.45)' } : {})
               }}
               onClick={() => setNotesOpen(!notesOpen)}
               title="Mở ghi chú (N)"
@@ -1161,8 +1161,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               {notes.length > 0 && (
                 <span
                   style={{
-                    background: notesOpen ? 'white' : 'var(--terracotta)',
-                    color: notesOpen ? 'var(--deep)' : 'white',
+                    background: notesOpen ? 'var(--sf-terracotta)' : 'var(--sf-apricot)',
+                    color: 'white',
                     borderRadius: 999,
                     fontSize: 10,
                     padding: '1px 6px',
@@ -1515,7 +1515,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <strong style={{ fontSize: 13, color: 'var(--terracotta)' }}>📌 Ghim suy nghĩ (Parking Note)</strong>
+            <strong style={{ fontSize: 13, color: 'var(--sf-blue)' }}>📌 Ghim suy nghĩ (Parking Note)</strong>
             <button className="secondary" style={{ border: 0, padding: '2px 6px' }} onClick={() => setQuickParkOpen(false)}>✕</button>
           </div>
           <p className="muted" style={{ fontSize: 12, margin: '0 0 8px' }}>
@@ -1547,7 +1547,13 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             <span className="muted" style={{ fontSize: 11 }}>Trang {currentPage}</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="secondary" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setQuickParkOpen(false)}>Hủy</button>
-              <button className="primary" style={{ fontSize: 12, padding: '4px 14px' }} onClick={handleSaveQuickPark}>Lưu (Enter)</button>
+              <button
+                className="primary"
+                style={{ fontSize: 12, padding: '4px 14px', background: 'var(--sf-blue)', color: 'white', border: 0 }}
+                onClick={handleSaveQuickPark}
+              >
+                Lưu (Enter)
+              </button>
             </div>
           </div>
         </div>

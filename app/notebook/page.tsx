@@ -277,39 +277,50 @@ export function NotebookPage() {
         <div className="filterRow" style={{ margin: 0, gap: 8 }}>
           <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Loại:</span>
           {[
-            ['all', `Tất cả (${unifiedItems.length})`],
-            ['highlights', `Trích dẫn (${highlightsList.length})`],
-            ['quick', 'Ghi chú'],
-            ['question', 'Câu hỏi'],
-            ['parking', 'Parking Note']
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              className={`pill ${primaryFilter === key ? 'activePill' : ''}`}
-              onClick={() => setPrimaryFilter(key as PrimaryFilter)}
-            >
-              {label}
-            </button>
-          ))}
+            ['all', `Tất cả (${unifiedItems.length})`, 'var(--deep)', 'white'],
+            ['highlights', `Trích dẫn (${highlightsList.length})`, 'var(--sf-yellow-soft)', '#736d24'],
+            ['quick', 'Ghi chú', 'var(--sf-apricot-soft)', 'var(--sf-terracotta)'],
+            ['question', 'Câu hỏi', 'var(--sf-rose-soft)', 'var(--sf-rose)'],
+            ['parking', 'Parking Note', 'var(--sf-blue-soft)', '#355877']
+          ].map(([key, label, activeBg, activeColor]) => {
+            const isAct = primaryFilter === key;
+            return (
+              <button
+                key={key}
+                className="pill"
+                style={isAct ? { background: activeBg, color: activeColor, borderColor: activeColor, fontWeight: 600 } : {}}
+                onClick={() => setPrimaryFilter(key as PrimaryFilter)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Status Filter Row */}
         <div className="filterRow" style={{ margin: 0, gap: 8 }}>
           <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Trạng thái:</span>
           {[
-            ['all', 'Tất cả trạng thái'],
-            ['open', 'Chưa giải quyết'],
-            ['resolved', 'Đã giải quyết']
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              className={`pill ${statusFilter === key ? 'activePill' : ''}`}
-              style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => setStatusFilter(key as StatusFilter)}
-            >
-              {label}
-            </button>
-          ))}
+            ['all', 'Tất cả trạng thái', 'var(--deep)', 'white'],
+            ['open', 'Chưa giải quyết', 'var(--sf-rose-soft)', 'var(--sf-rose)'],
+            ['resolved', 'Đã giải quyết', 'var(--sf-sage-soft)', 'var(--sf-sage)']
+          ].map(([key, label, activeBg, activeColor]) => {
+            const isAct = statusFilter === key;
+            return (
+              <button
+                key={key}
+                className="pill"
+                style={{
+                  fontSize: 12,
+                  padding: '5px 12px',
+                  ...(isAct ? { background: activeBg, color: activeColor, borderColor: activeColor, fontWeight: 600 } : {})
+                }}
+                onClick={() => setStatusFilter(key as StatusFilter)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -347,29 +358,46 @@ export function NotebookPage() {
             const isResolved = item.status === 'resolved';
             const isEditing = editingNoteId === item.id;
 
-            const cardBorderColor = isHighlight
-              ? 'var(--dusty-blue)'
+            // Semantic surface tinting (Section: Notebook)
+            const cardBg = isHighlight
+              ? 'var(--sf-yellow-soft)'
               : isParking
-              ? 'var(--terracotta)'
+              ? 'var(--sf-blue-soft)'
               : isQuestion
-              ? (isResolved ? 'var(--sage)' : 'var(--coral)')
-              : 'var(--peach)';
+              ? (isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)')
+              : 'var(--sf-apricot-soft)';
+
+            const cardBorder = isHighlight
+              ? 'rgba(185, 178, 114, 0.35)'
+              : isParking
+              ? 'rgba(159, 180, 198, 0.35)'
+              : isQuestion
+              ? (isResolved ? 'rgba(111, 141, 119, 0.35)' : 'rgba(217, 131, 131, 0.35)')
+              : 'rgba(233, 161, 122, 0.35)';
+
+            const cardBorderColor = isHighlight
+              ? 'var(--sf-olive)'
+              : isParking
+              ? 'var(--sf-blue)'
+              : isQuestion
+              ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
+              : 'var(--sf-apricot)';
 
             const badgeBg = isHighlight
-              ? 'rgba(154, 174, 195, 0.15)'
+              ? 'rgba(185, 178, 114, 0.25)'
               : isParking
-              ? 'rgba(189, 87, 56, 0.12)'
+              ? 'rgba(159, 180, 198, 0.25)'
               : isQuestion
-              ? (isResolved ? 'rgba(94, 127, 104, 0.15)' : 'rgba(214, 111, 104, 0.15)')
-              : 'rgba(233, 161, 122, 0.16)';
+              ? (isResolved ? 'rgba(111, 141, 119, 0.25)' : 'rgba(217, 131, 131, 0.25)')
+              : 'rgba(233, 161, 122, 0.25)';
 
             const badgeColor = isHighlight
-              ? 'var(--dusty-blue)'
+              ? '#736d24'
               : isParking
-              ? 'var(--terracotta)'
+              ? '#355877'
               : isQuestion
-              ? (isResolved ? 'var(--sage)' : 'var(--coral)')
-              : 'var(--terracotta)';
+              ? (isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)')
+              : 'var(--sf-terracotta)';
 
             const targetUrl = `/reader/${item.documentId}?page=${item.page}&y=${item.y}${item.highlightId ? `&highlight=${item.highlightId}` : ''}`;
 
@@ -382,6 +410,8 @@ export function NotebookPage() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 12,
+                  background: cardBg,
+                  border: `1px solid ${cardBorder}`,
                   borderLeft: `4px solid ${cardBorderColor}`,
                   borderRadius: 14,
                   position: 'relative',
@@ -417,8 +447,8 @@ export function NotebookPage() {
                           fontWeight: 700,
                           padding: '2px 6px',
                           borderRadius: 6,
-                          background: isResolved ? 'rgba(94, 127, 104, 0.12)' : 'rgba(214, 111, 104, 0.12)',
-                          color: isResolved ? 'var(--sage)' : 'var(--coral)'
+                          background: isResolved ? 'rgba(111, 141, 119, 0.25)' : 'rgba(217, 131, 131, 0.25)',
+                          color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)'
                         }}
                       >
                         {isResolved ? '✓ Đã giải đáp' : 'Chưa giải quyết'}
@@ -437,8 +467,8 @@ export function NotebookPage() {
                     style={{
                       margin: 0,
                       padding: '8px 12px',
-                      background: 'var(--card-subtle)',
-                      borderLeft: '3px solid var(--muted)',
+                      background: 'var(--sf-surface)',
+                      borderLeft: `3px solid ${cardBorderColor}`,
                       borderRadius: '0 8px 8px 0',
                       fontSize: 13,
                       fontStyle: 'italic',

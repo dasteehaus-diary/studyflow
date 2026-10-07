@@ -110,10 +110,11 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <div
             style={{
               fontSize: 13,
-              background: 'var(--sticky-bg)',
+              background: 'var(--sf-surface)',
               padding: '8px 12px',
               borderRadius: 10,
-              borderLeft: '3px solid var(--terracotta)',
+              border: '1px solid rgba(159, 180, 198, 0.35)',
+              borderLeft: '3px solid var(--sf-blue)',
               color: 'var(--ink)',
               display: 'flex',
               alignItems: 'flex-start',
@@ -121,11 +122,11 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
               boxShadow: 'var(--shadow-sm)'
             }}
           >
-            <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--terracotta)' }}>
+            <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--sf-blue)' }}>
               <IconParkingNote size={16} />
             </span>
             <div style={{ wordBreak: 'break-word' }}>
-              <span style={{ fontWeight: 600, color: 'var(--terracotta)' }}>Lần trước:</span> “
+              <span style={{ fontWeight: 600, color: 'var(--sf-blue)' }}>Lần trước:</span> “
               {activeParkingNote.noteText}”
             </div>
           </div>
@@ -146,14 +147,14 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
         </div>
       </div>
 
-      {/* CTA Button */}
+      {/* CTA Button (Sage Green) */}
       <Link
         className="primary"
         href={`/reader/${document.id}`}
         style={{
           whiteSpace: 'nowrap',
           padding: '12px 20px',
-          boxShadow: '0 4px 14px rgba(189, 87, 56, 0.22)'
+          boxShadow: '0 4px 14px rgba(111, 141, 119, 0.28)'
         }}
       >
         <IconResume size={18} />

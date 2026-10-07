@@ -676,8 +676,8 @@ export function StickyNote({
       className={`studyflow-sticky-note ${className}`}
       style={{
         position: 'relative',
-        background: 'var(--sticky-bg, #FFF9E6)',
-        border: '1px solid var(--sticky-border, #EFE5C6)',
+        background: 'var(--sf-yellow-soft, #FBF3D2)',
+        border: '1px solid rgba(185, 178, 114, 0.35)',
         borderRadius: 12,
         padding: '16px 18px',
         boxShadow: '0 4px 14px rgba(68, 58, 43, 0.06)',

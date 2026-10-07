@@ -13,10 +13,10 @@ import {
 } from '@/components/icons/BrandIcons';
 
 const navItems = [
-  { label: 'Kệ sách', href: '/', Icon: IconBookshelf },
-  { label: 'Ghi chép', href: '/notebook', Icon: IconNotebook },
-  { label: 'Kho B-Side', href: '/vault', Icon: IconBSide },
-  { label: 'Cài đặt', href: '/settings', Icon: IconSettings }
+  { label: 'Kệ sách', href: '/', Icon: IconBookshelf, activeClass: 'navBookshelf' },
+  { label: 'Ghi chép', href: '/notebook', Icon: IconNotebook, activeClass: 'navNotebook' },
+  { label: 'Kho B-Side', href: '/vault', Icon: IconBSide, activeClass: 'navVault' },
+  { label: 'Cài đặt', href: '/settings', Icon: IconSettings, activeClass: 'navSettings' }
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -55,13 +55,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="nav">
-            {navItems.map(({ label, href, Icon }) => {
+            {navItems.map(({ label, href, Icon, activeClass }) => {
               const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={isActive ? 'navActive' : ''}
+                  className={isActive ? `navActive ${activeClass}` : ''}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   <Icon size={19} />

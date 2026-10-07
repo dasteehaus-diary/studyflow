@@ -265,14 +265,35 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
             </span>
           )}
 
+          {/* Format badge: PDF in rose-soft */}
+          <span
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              background: 'var(--sf-rose-soft)',
+              color: 'var(--sf-rose)',
+              border: '1px solid rgba(217, 131, 131, 0.35)',
+              padding: '2px 6px',
+              borderRadius: 6,
+              fontSize: 9,
+              fontWeight: 700,
+              zIndex: 2,
+              letterSpacing: '0.04em'
+            }}
+          >
+            PDF
+          </span>
+
           {document.status === 'completed' && (
             <span
               style={{
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'rgba(34, 48, 38, 0.85)',
-                color: 'white',
+                background: 'var(--sf-sage-soft)',
+                color: 'var(--sf-sage)',
+                border: '1px solid rgba(111, 141, 119, 0.4)',
                 padding: '3px 8px',
                 borderRadius: 8,
                 fontSize: 10,
@@ -282,6 +303,26 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
               }}
             >
               ✓ Đã xong
+            </span>
+          )}
+
+          {document.status === 'archived' && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                background: 'var(--card-subtle)',
+                color: 'var(--muted)',
+                border: '1px solid var(--line)',
+                padding: '3px 8px',
+                borderRadius: 8,
+                fontSize: 10,
+                fontWeight: 600,
+                zIndex: 2
+              }}
+            >
+              📁 Đã lưu trữ
             </span>
           )}
         </div>
@@ -307,7 +348,18 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           {/* Tags */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, minHeight: 20 }}>
             {document.tags.slice(0, 3).map(t => (
-              <span key={t} className="pill" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6 }}>
+              <span
+                key={t}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: 'var(--sf-apricot-soft)',
+                  color: 'var(--sf-terracotta)',
+                  border: '1px solid rgba(233, 161, 122, 0.35)',
+                  fontWeight: 500
+                }}
+              >
                 {t}
               </span>
             ))}

@@ -223,22 +223,28 @@ export default function HomePage() {
       {/* Tag Filters */}
       <div className="filterRow">
         <button
-          className={`pill ${selectedTag === 'All' ? 'activePill' : ''}`}
+          className="pill"
+          style={selectedTag === 'All' ? { background: 'var(--deep)', color: 'white', borderColor: 'var(--deep)', fontWeight: 600 } : {}}
           onClick={() => setSelectedTag('All')}
         >
           Tất cả
         </button>
-        {allTags.map(tag => (
-          <button
-            key={tag}
-            className={`pill ${selectedTag === tag ? 'activePill' : ''}`}
-            onClick={() => setSelectedTag(tag)}
-          >
-            {tag}
-          </button>
-        ))}
+        {allTags.map(tag => {
+          const isAct = selectedTag === tag;
+          return (
+            <button
+              key={tag}
+              className="pill"
+              style={isAct ? { background: 'var(--sf-apricot-soft)', color: 'var(--sf-terracotta)', borderColor: 'var(--sf-apricot)', fontWeight: 600 } : {}}
+              onClick={() => setSelectedTag(tag)}
+            >
+              {tag}
+            </button>
+          );
+        })}
         <button
-          className={`pill ${selectedTag === 'Archived' ? 'activePill' : ''}`}
+          className="pill"
+          style={selectedTag === 'Archived' ? { background: 'var(--card-subtle)', color: 'var(--ink)', borderColor: 'var(--muted)', fontWeight: 600 } : {}}
           onClick={() => setSelectedTag('Archived')}
         >
           📦 Đã lưu trữ

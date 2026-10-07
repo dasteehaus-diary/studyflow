@@ -678,42 +678,42 @@ export default function SettingsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Bộ nhớ cục bộ (OPFS)</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: opfsOk ? 'var(--olive)' : 'var(--terracotta)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: opfsOk ? 'var(--sf-sage)' : 'var(--sf-rose)' }}>
                 {opfsOk ? '● Sẵn sàng (Ready)' : '○ Không hỗ trợ (Unsupported)'}
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Lưu trữ vĩnh viễn</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: persistent ? 'var(--olive)' : 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: persistent ? 'var(--sf-sage)' : 'var(--sf-blue)' }}>
                 {persistent ? '● Đã cấp phép (Granted)' : '○ Chưa cấp phép (Not granted)'}
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Supabase Cloud</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--olive)' : 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--sf-sage)' : 'var(--sf-blue)' }}>
                 {isSupabaseConfigured ? '● Đã kết nối (Connected)' : '○ Chỉ cục bộ (Local-only)'}
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Tài khoản (Auth)</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: user ? 'var(--olive)' : 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: user ? 'var(--sf-sage)' : 'var(--muted)' }}>
                 {user ? `● Đã đăng nhập (${user.email})` : '○ Chưa đăng nhập (Signed out)'}
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Hàng đợi đồng bộ</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: pendingSyncCount > 0 ? 'var(--terracotta)' : 'var(--olive)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: pendingSyncCount > 0 ? 'var(--sf-apricot)' : 'var(--sf-sage)' }}>
                 {pendingSyncCount} tác vụ đang chờ
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Bot Telegram</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (telegramServerConfigured && settings.telegramChatId.trim()) ? 'var(--olive)' : 'var(--terracotta)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (telegramServerConfigured && settings.telegramChatId.trim()) ? 'var(--sf-sage)' : 'var(--sf-terracotta)' }}>
                 {(telegramServerConfigured && settings.telegramChatId.trim())
                   ? '● Đã kết nối (Connected)'
                   : '○ Cần cấu hình (Configuration required)'}
@@ -722,7 +722,7 @@ export default function SettingsPage() {
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Đồng bộ nhắc nhở (Reminder Sync)</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (settings.inactivityDays === 0) ? 'var(--muted)' : (user && isSupabaseConfigured) ? 'var(--olive)' : 'var(--terracotta)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: (settings.inactivityDays === 0) ? 'var(--muted)' : (user && isSupabaseConfigured) ? 'var(--sf-sage)' : 'var(--sf-blue)' }}>
                 {settings.inactivityDays === 0
                   ? '○ Đang tắt (Off)'
                   : (user && isSupabaseConfigured)
@@ -740,14 +740,14 @@ export default function SettingsPage() {
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>Lịch trình gửi (Hourly Cron)</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--olive)' : 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: isSupabaseConfigured ? 'var(--sf-sage)' : 'var(--sf-blue)' }}>
                 {isSupabaseConfigured ? '● Sẵn sàng (0 * * * *)' : '○ Cần Cloud Supabase'}
               </div>
             </div>
 
             <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--card-subtle)', border: '1px solid var(--line)' }}>
               <div className="eyebrow" style={{ fontSize: 10 }}>PWA / Service Worker</div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: swActive ? 'var(--olive)' : 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4, color: swActive ? 'var(--sf-sage)' : 'var(--muted)' }}>
                 {swActive ? '● Đang hoạt động (Active)' : '○ Chưa kích hoạt (Inactive)'}
               </div>
             </div>
