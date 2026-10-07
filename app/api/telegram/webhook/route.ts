@@ -65,8 +65,8 @@ export async function POST(req: Request) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: chatId,
-              text: `💤 *Đã hoãn nhắc nhở ${days} ngày*.\nStudyFlow sẽ không gửi lời nhắc cho tài liệu này cho đến hết thời gian hoãn.`,
-              parse_mode: 'Markdown'
+              text: `💤 <b>Đã hoãn nhắc nhở ${days} ngày</b>.\nStudyFlow sẽ không gửi lời nhắc cho tài liệu này cho đến hết thời gian hoãn.`,
+              parse_mode: 'HTML'
             })
           });
         }

@@ -1,0 +1,34 @@
+-- Migration 0003: Complete Rewards Catalog Seed & Contextual Reward Definitions
+-- Ensures foreign key constraint public.unlocked_rewards.reward_id -> public.rewards(id) is satisfied for all rewards
+
+insert into public.rewards (id, code, type, title, weight, cooldown_unlocks, one_time, active, payload)
+values
+  ('potato-of-knowledge', 'POTATO_KNOWLEDGE', 'collectible', 'Potato of Knowledge', 12, 4, true, true, '{"subtitle":"Kartoffel des Wissens","lore":"Được tìm thấy sâu trong những chú thích cuối trang. Nó không hề phán xét bạn đã trì hoãn bao lâu trước khi nghe hết cuộn băng này."}'::jsonb),
+  ('duck-of-persistence', 'DUCK_PERSISTENCE', 'collectible', 'Duck of Persistence', 12, 4, true, true, '{"subtitle":"Ente der Beharrlichkeit","lore":"Người bạn đồng hành nhỏ bé dành cho những độc giả từ chối việc bỏ dở danh sách đọc của mình."}'::jsonb),
+  ('frog-of-focus', 'FROG_FOCUS', 'collectible', 'Frog of Deep Contemplation', 10, 4, true, true, '{"subtitle":"Der nachdenkliche Frosch","lore":"Ribbit. Bạn đã thật sự đi tới cuối cuộn băng rồi đấy."}'::jsonb),
+  ('capybara-zen', 'CAPYBARA_ZEN', 'collectible', 'Zen Capybara', 8, 5, true, true, '{"subtitle":"Meister der Gelassenheit","lore":"Biểu tượng tối thượng của sự an nhiên. Nó mỉm cười thanh thản khi bạn hoàn thành một cuộn băng."}'::jsonb),
+  ('very-important-rock', 'VERY_IMPORTANT_ROCK', 'collectible', 'Hòn đá cực kỳ quan trọng', 12, 3, true, true, '{"subtitle":"Đứng vững trước mọi sự xao nhãng","lore":"Không có thông báo mạng xã hội nào có thể lay chuyển được hòn đá này."}'::jsonb),
+  ('tiny-crown', 'TINY_CROWN', 'collectible', 'Vương miện giấy tí hon', 10, 3, false, true, '{"subtitle":"Trị vì vương quốc của sự kiên nhẫn","lore":"Được gấp tỉ mỉ từ trang giấy ghi chú."}'::jsonb),
+  ('imaginary-coffee', 'IMAGINARY_COFFEE', 'collectible', 'Tách cà phê tưởng tượng', 14, 2, false, true, '{"subtitle":"Caffeine của trí não","lore":"Uống một ngụm tinh thần trước khi lật sang cuốn sách tiếp theo."}'::jsonb),
+  ('gold-star-adults', 'GOLD_STAR_ADULTS', 'collectible', 'Ngôi sao vàng cho người trưởng thành', 14, 2, false, true, '{"subtitle":"Bạn đã làm rất tốt hôm nay","lore":"Xác nhận: Bạn là một độc giả kiên định."}'::jsonb),
+  ('cert-pdf-survivor', 'CERT_PDF_SURVIVOR', 'certificate', 'Chứng chỉ Sinh tồn cùng PDF', 15, 3, false, true, '{"certificateRecipientTitle":"Kiện tướng hoàn thành cuộn băng","certificateReason":"Đã xuất sắc điều hướng qua các đoạn văn học thuật và đẩy lùi ham muốn lướt mạng xã hội.","subtitle":"Được trao tặng với đầy đủ vinh dự cassette"}'::jsonb),
+  ('cert-not-giving-up', 'CERT_NOT_GIVING_UP', 'certificate', 'Bằng tốt nghiệp: Trở lại mạch đọc', 12, 3, false, true, '{"certificateRecipientTitle":"Bậc thầy bối cảnh","certificateReason":"Minh chứng sống cho triết lý Resume > Track bằng việc tiếp tục chính xác nơi suy nghĩ dừng lại.","subtitle":"Biểu trưng chống bỏ dở StudyFlow"}'::jsonb),
+  ('pro-page-turner', 'PRO_PAGE_TURNER', 'certificate', 'Chứng nhận: Thợ Lật Trang Chuyên Nghiệp', 12, 3, false, true, '{"certificateRecipientTitle":"Nghệ nhân cuộn trang","certificateReason":"Lật từ trang 1 đến trang cuối cùng với sự kiên định đáng kinh ngạc."}'::jsonb),
+  ('sound-dramatic-victory', 'SOUND_DRAMATIC_VICTORY', 'audio', 'Giai điệu chiến thắng 8-bit hào hùng', 15, 2, false, true, '{"soundType":"fanfare","caption":"Lắng nghe âm thanh chiến thắng vang dội khi hoàn thành cuộn băng cassette."}'::jsonb),
+  ('sound-retro-synth', 'SOUND_RETRO_SYNTH', 'audio', 'Track ẩn mặt B cuộn băng', 15, 2, false, true, '{"soundType":"retro-chime","caption":"Sự mộc mạc và chân thực của băng cassette cổ điển."}'::jsonb),
+  ('ambient-rain-session', 'AMBIENT_RAIN', 'ambient', 'Thư viện đêm mưa tĩnh mịch', 10, 2, false, true, '{"soundType":"lofi-rain","caption":"Tổng hợp sóng âm thư giãn tự nhiên, giúp tâm trí lắng dịu."}'::jsonb),
+  ('meme-200-pages', 'MEME_200_PAGES', 'meme', 'Thỏa thuận vĩ đại', 14, 2, false, true, '{"memeHeader":"KHI MỞ MỘT TÀI LIỆU 100 TRANG:","memeFooter":"\"Mình chỉ đọc lướt phần tóm tắt thôi...\"\n\n*4 tiếng sau: Cuộn băng đã được highlight toàn bộ*","caption":"Dopamine khi tập trung thật sự là có thật."}'::jsonb),
+  ('meme-parking-note', 'MEME_PARKING_NOTE', 'meme', 'Tôi trong quá khứ vs Tôi lúc này', 14, 2, false, true, '{"memeHeader":"TÔI QUÁ KHỨ ĐỂ LẠI PARKING NOTE:","memeFooter":"\"Đây là chính xác những gì chúng ta đang nghĩ dở.\"\n\nTÔI HIỆN TẠI: \"Cảm ơn vì đã không làm mình bối rối.\"","caption":"Không bao giờ đánh mất mạch suy nghĩ nữa."}'::jsonb),
+  ('easter-fake-legendary', 'EASTER_FAKE_LEGENDARY', 'easter_egg', 'Bí ẩn của Trang 0', 10, 3, true, true, '{"surpriseText":"Bạn đã tua cuộn băng ngược về trước điểm khởi đầu và tìm thấy một rãnh bí mật trên trục cassette.","postCreditText":"Mặt B đã kết thúc. Hãy lật mặt băng bất cứ khi nào bạn sẵn sàng cho hành trình tiếp theo."}'::jsonb),
+  ('box-inside-box', 'BOX_INSIDE_BOX', 'easter_egg', 'Chiếc hộp bên trong chiếc hộp', 10, 3, true, true, '{"surpriseText":"Mở hộp 1... Mở hộp 2... Mở hộp 3...","postCreditText":"Chúc mừng bạn đã hoàn thành tài liệu! Hãy nghỉ ngơi một chút trước khi đọc tiếp."}'::jsonb),
+  ('cat-sleeping-on-book', 'CAT_SLEEPING', 'collectible', 'Mèo ngủ gật trên trang sách', 12, 3, false, true, '{"subtitle":"Người gác cổng trang sách ấm áp","lore":"Meow. Nhiệm vụ hôm nay đã hoàn thành, giờ là lúc thư giãn."}'::jsonb),
+  ('fake-urgent-broadcast', 'FAKE_URGENT_BROADCAST', 'meme', 'Bản tin khẩn cấp', 12, 3, false, true, '{"memeHeader":"THÔNG BÁO ĐẶC BIỆT:","memeFooter":"Một người vừa thật sự đọc hết toàn bộ tài liệu thay vì lưu vào bookmark rồi quên lãng!\n\nXác nhận: Đó chính là bạn.","caption":"Chống bỏ dở thành công."}'::jsonb),
+  ('tea-of-clarity', 'TEA_CLARITY', 'collectible', 'Tách trà tĩnh tâm', 12, 2, false, true, '{"subtitle":"Sự tĩnh lặng quý giá","lore":"Khi dòng suy nghĩ lắng xuống, những ý niệm cốt lõi bắt đầu kết tinh."}'::jsonb),
+  ('golden-bookmark', 'GOLDEN_BOOKMARK', 'collectible', 'Dấu trang mạ vàng danh dự', 10, 4, true, true, '{"subtitle":"Khắc sâu triết lý Resume > Track","lore":"Không cần đếm số trang, quan trọng là luôn quay lại với mạch đọc."}'::jsonb),
+  ('flashback-note', 'FIRST_NOTE_FLASHBACK', 'collectible', 'First Note Flashback', 15, 2, false, true, '{"subtitle":"Ký ức trang đầu tiên","lore":"Mỗi cuốn sách bắt đầu từ một dòng ghi chú đầu tiên đầy tò mò."}'::jsonb),
+  ('flashback-question', 'RESOLVED_QUESTION_FLASHBACK', 'certificate', 'Khoảnh khắc Khai Sáng', 15, 2, false, true, '{"certificateRecipientTitle":"Người đi tìm câu trả lời","certificateReason":"Không để câu hỏi dang dở trôi vào quên lãng."}'::jsonb),
+  ('flashback-parking', 'PAST_YOU_PARKING', 'collectible', 'Dấu chân quá khứ', 15, 2, false, true, '{"subtitle":"Hành trình Resume > Track","lore":"Không cần cố gắng đọc hết trong một lần, quan trọng là biết quay lại."}'::jsonb)
+on conflict (id) do update set
+  title = excluded.title,
+  payload = excluded.payload,
+  active = excluded.active;

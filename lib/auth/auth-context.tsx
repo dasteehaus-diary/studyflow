@@ -3,15 +3,19 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../supabase/client.ts';
-import { initSyncListeners, processSyncQueue, pullAndHydrateFromRemote } from '../sync/sync-service.ts';
+import { initSyncListeners, processSyncQueue, pullAndHydrateFromRemote, reconcileOnSignIn } from '../sync/sync-service.ts';
+
+export type SyncState = 'idle' | 'reconciling' | 'synced' | 'error';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  syncState: SyncState;
   signInWithOtp: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  triggerReconciliation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,15 +23,30 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: false,
   isConfigured: false,
+  syncState: 'idle',
   signInWithOtp: async () => ({ error: new Error('Supabase not configured') }),
-  signOut: async () => {}
+  signOut: async () => {},
+  triggerReconciliation: async () => {}
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
   const isConfigured = !!supabase;
+
+  const triggerReconciliation = async () => {
+    if (!session?.user) return;
+    try {
+      setSyncState('reconciling');
+      await reconcileOnSignIn(session.user.id);
+      setSyncState('synced');
+    } catch (err) {
+      console.warn('Manual reconciliation failed:', err);
+      setSyncState('error');
+    }
+  };
 
   useEffect(() => {
     initSyncListeners();
@@ -39,10 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleSyncOnAuth = async (userId: string) => {
       try {
-        await processSyncQueue();
-        await pullAndHydrateFromRemote(userId);
+        setSyncState('reconciling');
+        await reconcileOnSignIn(userId);
+        setSyncState('synced');
       } catch (err) {
-        console.warn('Auth sync hydration failed:', err);
+        console.warn('Auth sync reconciliation failed:', err);
+        setSyncState('error');
       }
     };
 
@@ -89,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isConfigured, signInWithOtp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isConfigured, signInWithOtp, signOut, syncState, triggerReconciliation }}>
       {children}
     </AuthContext.Provider>
   );

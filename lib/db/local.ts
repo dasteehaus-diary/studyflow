@@ -188,3 +188,51 @@ export async function renameDocument(documentId: string, newTitle: string): Prom
 
   return true;
 }
+
+/**
+ * Deletes a document with complete local cascade cleanup (Section 8).
+ * Cleans OPFS PDF, progress, highlights, notes, reading sessions, related syncQueue items,
+ * while preserving unlocked rewards (with documentTitle snapshot).
+ * Enqueues document delete sync.
+ */
+export async function deleteDocumentLocalCascade(
+  documentId: string,
+  options?: { preservePdfBytes?: boolean }
+): Promise<{
+  deletedHighlights: number;
+  deletedNotes: number;
+  deletedSessions: number;
+}> {
+  if (!localDB) {
+    return { deletedHighlights: 0, deletedNotes: 0, deletedSessions: 0 };
+  }
+
+  // 1. Remove PDF from OPFS unless explicitly asked to preserve
+  if (!options?.preservePdfBytes) {
+    const { removePdfFromOPFS } = await import('../storage/opfs');
+    await removePdfFromOPFS(documentId).catch(console.warn);
+  }
+
+  // 2. Count before delete for return telemetry / testing
+  const deletedHighlights = await localDB.highlights.where('documentId').equals(documentId).count();
+  const deletedNotes = await localDB.notes.where('documentId').equals(documentId).count();
+  const deletedSessions = await localDB.readingSessions.where('documentId').equals(documentId).count();
+
+  // 3. Cascade delete child entities
+  await localDB.progress.delete(documentId);
+  await localDB.highlights.where('documentId').equals(documentId).delete();
+  await localDB.notes.where('documentId').equals(documentId).delete();
+  await localDB.readingSessions.where('documentId').equals(documentId).delete();
+
+  // 4. Delete the document record itself
+  await localDB.documents.delete(documentId);
+
+  // 5. Clean any syncQueue items related to this documentId
+  await localDB.syncQueue.where('entityId').equals(documentId).delete();
+
+  // 6. Enqueue document delete sync
+  const { enqueueSync } = await import('../sync/sync-service');
+  await enqueueSync('document', documentId, 'delete', { id: documentId });
+
+  return { deletedHighlights, deletedNotes, deletedSessions };
+}

@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -99,7 +107,7 @@ serve(async (req) => {
           .maybeSingle();
 
         if (parkingNote?.note_text) {
-          contextualSnippet = `\n\n📌 Lần trước bạn để lại:\n“_${parkingNote.note_text.trim()}_”`;
+          contextualSnippet = `\n\n📌 Lần trước bạn để lại:\n“<i>${escapeHtml(parkingNote.note_text.trim())}</i>”`;
         } else {
           // Second priority: Open unresolved question
           const { data: openQuestion } = await supabase
@@ -113,7 +121,7 @@ serve(async (req) => {
             .maybeSingle();
 
           if (openQuestion?.note_text) {
-            contextualSnippet = `\n\n❓ Câu hỏi còn mở:\n“_${openQuestion.note_text.trim()}_”`;
+            contextualSnippet = `\n\n❓ Câu hỏi còn mở:\n“<i>${escapeHtml(openQuestion.note_text.trim())}</i>”`;
           }
         }
       }
@@ -123,13 +131,13 @@ serve(async (req) => {
 
       // Compose contextual Vietnamese message (Page X / Y prioritized over position %)
       const message = [
-        `📼 *${doc.title}*`,
+        `📼 <b>${escapeHtml(doc.title || 'Tài liệu')}</b>`,
         '',
-        `Bạn đang dừng ở *trang ${currentPage} / ${totalPages}*.`,
+        `Bạn đang dừng ở <b>trang ${currentPage} / ${totalPages}</b>.`,
         `Vị trí đọc: khoảng ${positionPercent}%`,
         contextualSnippet,
         '',
-        `▶ [Tiếp tục từ chỗ đang dở](${deepLink})`
+        `▶ <a href="${escapeHtml(deepLink)}">Tiếp tục từ chỗ đang dở</a>`
       ].filter(Boolean).join('\n');
 
       // Get target chat ID
@@ -151,7 +159,7 @@ serve(async (req) => {
         body: JSON.stringify({
           chat_id: chatId,
           text: message,
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [{ text: '▶ Tiếp tục từ chỗ đang dở', url: deepLink }],

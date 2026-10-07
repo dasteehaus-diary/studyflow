@@ -28,10 +28,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const escapeHtml = (str: string) =>
+      str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
     const message = [
-      '📼 *StudyFlow — Kiểm tra kết nối*',
+      '📼 <b>StudyFlow — Kiểm tra kết nối</b>',
       '',
-      `Tin nhắn thử nghiệm đã gửi thành công tới Chat ID \`${chatId}\`!`,
+      `Tin nhắn thử nghiệm đã gửi thành công tới Chat ID <code>${escapeHtml(chatId)}</code>!`,
       '',
       'Khi bạn tạm dừng đọc quá số ngày đã cài đặt, StudyFlow sẽ tự động gửi thông báo kèm dòng suy nghĩ (Parking Note) và vị trí trang đọc chính xác để bạn dễ dàng tiếp tục.'
     ].join('\n');
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         chat_id: chatId,
         text: message,
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML'
       })
     });
 

@@ -1,10 +1,16 @@
-const CACHE_NAME = 'studyflow-v0.2.3';
+const CACHE_NAME = 'studyflow-v0.2.4';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
   '/icon.svg',
   '/pdf.worker.min.mjs'
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -25,12 +31,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests, skip chrome-extension or external cross-origin APIs
+  // Only handle GET requests
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Skip API routes and dynamic Next.js data
-  if (url.pathname.startsWith('/api/')) return;
+  // Skip API routes, Supabase calls, Telegram calls, and browser extensions
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('telegram.org') ||
+    url.protocol.startsWith('chrome-extension')
+  ) {
+    return;
+  }
 
   // Network-first for navigation, cache-first for static assets
   if (event.request.mode === 'navigate') {

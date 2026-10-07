@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CassetteProgress } from './CassetteProgress';
-import { localDB, renameDocument, type LocalDocument, type LocalProgress } from '@/lib/db/local';
+import { localDB, renameDocument, deleteDocumentLocalCascade, type LocalDocument, type LocalProgress } from '@/lib/db/local';
 import { readingPositionPercent } from '@/lib/progress/cassette';
 import { pdfExistsInOPFS, removePdfFromOPFS } from '@/lib/storage/opfs';
 import { enqueueSync } from '@/lib/sync/sync-service';
@@ -119,12 +119,7 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
     );
     if (!ok) return;
 
-    await removePdfFromOPFS(document.id);
-    await localDB.documents.delete(document.id);
-    await localDB.progress.delete(document.id);
-    await localDB.highlights.where('documentId').equals(document.id).delete();
-    await localDB.notes.where('documentId').equals(document.id).delete();
-    await enqueueSync('document', document.id, 'delete', { id: document.id });
+    await deleteDocumentLocalCascade(document.id);
     setMenuOpen(false);
     onChanged?.();
   };

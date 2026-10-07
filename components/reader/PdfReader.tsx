@@ -240,10 +240,12 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       if (!initialPage && progressData.currentPage) {
         setCurrentPage(progressData.currentPage);
         currentLocatorRef.current.page = progressData.currentPage;
+        startLocatorRef.current.page = progressData.currentPage;
       }
       if (initialY === undefined && progressData.y !== undefined) {
         setCurrentY(progressData.y);
         currentLocatorRef.current.y = progressData.y;
+        startLocatorRef.current.y = progressData.y;
       }
       // Populate qualified pages from existing visitedRanges
       progressData.visitedRanges.forEach(([start, end]) => {
@@ -487,6 +489,12 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       if (document.visibilityState === 'hidden') {
         flushProgressRef.current();
         persistSessionRef.current();
+      } else if (document.visibilityState === 'visible') {
+        // Reset session tracking for new focus period
+        sessionSavedRef.current = false;
+        sessionStartRef.current = new Date().toISOString();
+        activeSecondsRef.current = 0;
+        startLocatorRef.current = { ...currentLocatorRef.current };
       }
     };
 
@@ -758,6 +766,14 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   // Delete highlight
   const handleDeleteHighlight = async (highlightId: string) => {
     if (!localDB) return;
+    const linkedNotes = await localDB.notes.where('highlightId').equals(highlightId).toArray();
+    if (linkedNotes.length > 0) {
+      await localDB.notes.where('highlightId').equals(highlightId).modify({ highlightId: undefined });
+      for (const n of linkedNotes) {
+        await enqueueSync('note', n.id, 'upsert', { ...n, highlightId: undefined });
+      }
+      refreshNotes();
+    }
     await localDB.highlights.delete(highlightId);
     setHighlights(prev => prev.filter(h => h.id !== highlightId));
     await enqueueSync('highlight', highlightId, 'delete', { id: highlightId });

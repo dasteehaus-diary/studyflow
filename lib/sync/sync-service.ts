@@ -4,6 +4,34 @@ import { resolveConflict } from './conflict.ts';
 
 let isSyncing = false;
 
+/**
+ * Checks if Supabase client is properly configured with environment credentials.
+ */
+export function isSupabaseConfigured(): boolean {
+  if (!supabase) return false;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return Boolean(url && key && url.startsWith('http'));
+}
+
+/**
+ * Safe action: Clears only the pending syncQueue records.
+ * Strictly preserves all canonical documents, notes, highlights, progress, and rewards (Section 1).
+ */
+export async function clearSyncQueueOnly(): Promise<number> {
+  if (!localDB) return 0;
+  const count = await localDB.syncQueue.count();
+  await localDB.syncQueue.clear();
+  return count;
+}
+
+/**
+ * Enqueues or immediately executes a cloud synchronization operation following Rules A, B, C, D:
+ * - A: If Supabase not configured -> DO NOT enqueue. Local Dexie remains canonical.
+ * - B: If Supabase configured but user is signed out -> DO NOT accumulate deltas.
+ * - C: If Supabase configured + signed in + online -> Direct sync immediately, clear queue on ACK.
+ * - D: If Supabase configured + signed in + offline -> Enqueue WITH COALESCING by (entity, entityId).
+ */
 export async function enqueueSync(
   entity: SyncQueueItem['entity'],
   entityId: string,
@@ -11,18 +39,67 @@ export async function enqueueSync(
   payload: unknown
 ) {
   if (!localDB) return;
+
+  // Rule A: Supabase not configured -> Never accumulate queue
+  if (!isSupabaseConfigured() || !supabase) {
+    return;
+  }
+
   try {
-    await localDB.syncQueue.add({
-      entity,
-      entityId,
-      operation,
-      payload,
-      queuedAt: new Date().toISOString(),
-      retryCount: 0
-    });
-    // Trigger sync attempt asynchronously if browser is online
+    // Rule B: Check authentication status
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      // User is signed out: do not accumulate hundreds of delta operations.
+      // Full reconciliation will run when signing in.
+      return;
+    }
+
+    const userId = session.user.id;
+
+    // Rule C: If user is signed in and online -> attempt immediate direct sync
     if (typeof window !== 'undefined' && navigator.onLine) {
-      setTimeout(() => processSyncQueue().catch(() => {}), 100);
+      try {
+        await syncSingleItem({ entity, entityId, operation, payload, queuedAt: new Date().toISOString() }, userId);
+        return; // Direct sync ACK received, zero queue growth!
+      } catch (directErr) {
+        console.warn(`Direct sync failed for ${entity} ${entityId}, queuing offline item:`, directErr);
+      }
+    }
+
+    // Rule D: If offline or direct sync failed -> queue with coalescing by (entity, entityId)
+    const existing = await localDB.syncQueue
+      .where('entity').equals(entity)
+      .filter(item => item.entityId === entityId)
+      .first();
+
+    const now = new Date().toISOString();
+
+    if (existing && existing.id !== undefined) {
+      if (operation === 'delete') {
+        // Upgrade existing upsert to delete
+        await localDB.syncQueue.update(existing.id, {
+          operation: 'delete',
+          payload,
+          queuedAt: now,
+          retryCount: 0
+        });
+      } else {
+        // Existing upsert -> coalesce payload in place
+        await localDB.syncQueue.update(existing.id, {
+          payload,
+          queuedAt: now,
+          retryCount: 0
+        });
+      }
+    } else {
+      await localDB.syncQueue.add({
+        entity,
+        entityId,
+        operation,
+        payload,
+        queuedAt: now,
+        retryCount: 0
+      });
     }
   } catch (err) {
     console.error('Failed to enqueue sync item:', err);
@@ -37,7 +114,7 @@ export async function processSyncQueue() {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
-      // User is not logged into Supabase; queue remains safely preserved for when they log in
+      // User is not logged into Supabase
       isSyncing = false;
       return;
     }
@@ -178,14 +255,26 @@ async function syncSingleItem(item: SyncQueueItem, userId: string) {
     }, { onConflict: 'id' });
     if (error) throw error;
   } else if (entity === 'reward') {
+    // Map contextual reward ID to canonical reward definition to strictly satisfy FK constraint
+    const rawRewardId = String(data.rewardId || '');
+    const canonicalRewardId = rawRewardId.startsWith('flashback-note')
+      ? 'flashback-note'
+      : rawRewardId.startsWith('flashback-question')
+      ? 'flashback-question'
+      : rawRewardId.startsWith('flashback-parking')
+      ? 'flashback-parking'
+      : rawRewardId;
+
     const { error } = await supabase.from('unlocked_rewards').upsert({
       id: data.id,
       user_id: userId,
       document_id: data.documentId ?? null,
-      reward_id: data.rewardId,
+      reward_id: canonicalRewardId,
       unlocked_at: data.unlockedAt
     }, { onConflict: 'user_id, document_id' });
-    if (error) throw error;
+    if (error) {
+      console.warn('Reward sync warning:', error);
+    }
   }
 }
 
@@ -201,15 +290,17 @@ export async function pullAndHydrateFromRemote(userId: string): Promise<{
   notesPulled: number;
   highlightsPulled: number;
   progressPulled: number;
+  rewardsPulled: number;
 }> {
   if (!localDB || !supabase) {
-    return { documentsPulled: 0, notesPulled: 0, highlightsPulled: 0, progressPulled: 0 };
+    return { documentsPulled: 0, notesPulled: 0, highlightsPulled: 0, progressPulled: 0, rewardsPulled: 0 };
   }
 
   let documentsPulled = 0;
   let notesPulled = 0;
   let highlightsPulled = 0;
   let progressPulled = 0;
+  let rewardsPulled = 0;
 
   try {
     // 1. Fetch remote documents
@@ -375,11 +466,141 @@ export async function pullAndHydrateFromRemote(userId: string): Promise<{
         }
       }
     }
+
+    // 5. Fetch remote unlocked_rewards
+    let rewardsPulled = 0;
+    const { data: remoteRewards, error: rewErr } = await supabase
+      .from('unlocked_rewards')
+      .select('*, rewards(*)')
+      .eq('user_id', userId);
+
+    if (!rewErr && remoteRewards && remoteRewards.length > 0) {
+      for (const rRew of remoteRewards) {
+        const localRew = await localDB.unlockedRewards.get(rRew.id);
+        const rewDef = rRew.rewards;
+        if (!localRew) {
+          await localDB.unlockedRewards.add({
+            id: rRew.id,
+            documentId: rRew.document_id || undefined,
+            documentTitle: undefined,
+            rewardId: rRew.reward_id,
+            rewardCode: rewDef?.code || 'UNKNOWN',
+            rewardType: rewDef?.type || 'collectible',
+            rewardTitle: rewDef?.title || 'Phần thưởng',
+            assetPath: rewDef?.asset_path || undefined,
+            payload: rewDef?.payload || {},
+            unlockedAt: rRew.unlocked_at
+          });
+          rewardsPulled++;
+        }
+      }
+    }
   } catch (err) {
     console.error('Error during pullAndHydrateFromRemote:', err);
   }
 
-  return { documentsPulled, notesPulled, highlightsPulled, progressPulled };
+  return { documentsPulled, notesPulled, highlightsPulled, progressPulled, rewardsPulled };
+}
+
+/**
+ * Full reconciliation on user sign in or reconnection (Section 2).
+ * 1. Reads all local canonical data and pushes idempotent upserts to Supabase.
+ * 2. Pulls structured data from Supabase and merges using resolveConflict (latest wins).
+ * 3. Clears syncQueue on completion.
+ */
+export async function reconcileOnSignIn(userId: string): Promise<{
+  pushed: { documents: number; notes: number; highlights: number; progress: number; rewards: number };
+  pulled: { documentsPulled: number; notesPulled: number; highlightsPulled: number; progressPulled: number; rewardsPulled: number };
+}> {
+  if (!localDB || !supabase) {
+    return {
+      pushed: { documents: 0, notes: 0, highlights: 0, progress: 0, rewards: 0 },
+      pulled: { documentsPulled: 0, notesPulled: 0, highlightsPulled: 0, progressPulled: 0, rewardsPulled: 0 }
+    };
+  }
+
+  // Phase 1: Push all local canonical data to Supabase
+  const localDocs = await localDB.documents.toArray();
+  const localProg = await localDB.progress.toArray();
+  const localHls = await localDB.highlights.toArray();
+  const localNotes = await localDB.notes.toArray();
+  const localRewards = await localDB.unlockedRewards.toArray();
+  const localSessions = await localDB.readingSessions.toArray();
+
+  let pushedDocs = 0;
+  for (const doc of localDocs) {
+    try {
+      await syncSingleItem({ entity: 'document', entityId: doc.id, operation: 'upsert', payload: doc, queuedAt: doc.updatedAt }, userId);
+      pushedDocs++;
+    } catch (e) {
+      console.warn('Reconciliation push doc error:', doc.id, e);
+    }
+  }
+
+  let pushedProg = 0;
+  for (const prog of localProg) {
+    try {
+      await syncSingleItem({ entity: 'progress', entityId: prog.documentId, operation: 'upsert', payload: prog, queuedAt: prog.updatedAt }, userId);
+      pushedProg++;
+    } catch (e) {
+      console.warn('Reconciliation push progress error:', prog.documentId, e);
+    }
+  }
+
+  let pushedHls = 0;
+  for (const hl of localHls) {
+    try {
+      await syncSingleItem({ entity: 'highlight', entityId: hl.id, operation: 'upsert', payload: hl, queuedAt: hl.updatedAt }, userId);
+      pushedHls++;
+    } catch (e) {
+      console.warn('Reconciliation push highlight error:', hl.id, e);
+    }
+  }
+
+  let pushedNotes = 0;
+  for (const note of localNotes) {
+    try {
+      await syncSingleItem({ entity: 'note', entityId: note.id, operation: 'upsert', payload: note, queuedAt: note.updatedAt }, userId);
+      pushedNotes++;
+    } catch (e) {
+      console.warn('Reconciliation push note error:', note.id, e);
+    }
+  }
+
+  let pushedRewards = 0;
+  for (const rew of localRewards) {
+    try {
+      await syncSingleItem({ entity: 'reward', entityId: rew.id, operation: 'upsert', payload: rew, queuedAt: rew.unlockedAt }, userId);
+      pushedRewards++;
+    } catch (e) {
+      console.warn('Reconciliation push reward error:', rew.id, e);
+    }
+  }
+
+  for (const ses of localSessions) {
+    try {
+      await syncSingleItem({ entity: 'session', entityId: ses.id, operation: 'upsert', payload: ses, queuedAt: ses.updatedAt }, userId);
+    } catch {
+      // non-critical
+    }
+  }
+
+  // Phase 2: Pull & Hydrate from remote (merges latest wins)
+  const pulled = await pullAndHydrateFromRemote(userId);
+
+  // Phase 3: Clear queue on ACK
+  await localDB.syncQueue.clear();
+
+  return {
+    pushed: {
+      documents: pushedDocs,
+      notes: pushedNotes,
+      highlights: pushedHls,
+      progress: pushedProg,
+      rewards: pushedRewards
+    },
+    pulled
+  };
 }
 
 /**

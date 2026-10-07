@@ -23,7 +23,7 @@ export function evaluateContextualReward(
 
   if (firstNote && firstNote.noteText.length > 5) {
     return {
-      id: `flashback-note-${documentId}`,
+      id: 'flashback-note',
       code: 'FIRST_NOTE_FLASHBACK',
       type: 'collectible',
       title: 'First Note Flashback',
@@ -42,7 +42,7 @@ export function evaluateContextualReward(
 
   if (resolvedQuestion) {
     return {
-      id: `flashback-question-${documentId}`,
+      id: 'flashback-question',
       code: 'RESOLVED_QUESTION_FLASHBACK',
       type: 'certificate',
       title: 'Khoảnh khắc Khai Sáng',
@@ -61,7 +61,7 @@ export function evaluateContextualReward(
 
   if (firstParking && firstParking.noteText.length > 5) {
     return {
-      id: `flashback-parking-${documentId}`,
+      id: 'flashback-parking',
       code: 'PAST_YOU_PARKING',
       type: 'collectible',
       title: 'Dấu chân quá khứ',

@@ -156,36 +156,83 @@ export async function restoreStudyFlowBackup(backup: unknown): Promise<{
     throw new Error('Tệp sao lưu bị lỗi cấu trúc: Mục "documents" không hợp lệ.');
   }
 
+  if (data.progress !== undefined && !Array.isArray(data.progress)) {
+    throw new Error('Tệp sao lưu bị lỗi cấu trúc: Mục "progress" không hợp lệ.');
+  }
+
+  if (data.highlights !== undefined && !Array.isArray(data.highlights)) {
+    throw new Error('Tệp sao lưu bị lỗi cấu trúc: Mục "highlights" không hợp lệ.');
+  }
+
+  if (data.notes !== undefined && !Array.isArray(data.notes)) {
+    throw new Error('Tệp sao lưu bị lỗi cấu trúc: Mục "notes" không hợp lệ.');
+  }
+
+  // Helper: check if local record is strictly newer than incoming backup record
+  const isNewer = (localUpdatedAt?: string, backupUpdatedAt?: string): boolean => {
+    if (!localUpdatedAt) return false;
+    if (!backupUpdatedAt) return true;
+    return new Date(localUpdatedAt).getTime() > new Date(backupUpdatedAt).getTime();
+  };
+
   let pdfsRestored = 0;
 
-  // Restore documents
+  // Restore documents (preserve newer local changes)
   for (const doc of data.documents || []) {
+    if (!doc.id || typeof doc.id !== 'string') continue;
+    const existing = await localDB.documents.get(doc.id);
+    if (existing && isNewer(existing.updatedAt, doc.updatedAt)) {
+      continue;
+    }
     await localDB.documents.put(doc);
   }
 
-  // Restore progress
+  // Restore progress (preserve newer local changes)
   for (const prog of data.progress || []) {
+    if (!prog.documentId || typeof prog.documentId !== 'string') continue;
+    const existing = await localDB.progress.get(prog.documentId);
+    if (existing && isNewer(existing.updatedAt, prog.updatedAt)) {
+      continue;
+    }
     await localDB.progress.put(prog);
   }
 
-  // Restore highlights
+  // Restore highlights (preserve newer local changes)
   for (const hl of data.highlights || []) {
+    if (!hl.id || typeof hl.id !== 'string') continue;
+    const existing = await localDB.highlights.get(hl.id);
+    if (existing && isNewer(existing.updatedAt, hl.updatedAt)) {
+      continue;
+    }
     await localDB.highlights.put(hl);
   }
 
-  // Restore notes
+  // Restore notes (preserve newer local changes)
   for (const note of data.notes || []) {
+    if (!note.id || typeof note.id !== 'string') continue;
+    const existing = await localDB.notes.get(note.id);
+    if (existing && isNewer(existing.updatedAt, note.updatedAt)) {
+      continue;
+    }
     await localDB.notes.put(note);
   }
 
   // Restore unlocked rewards
   for (const reward of data.unlockedRewards || []) {
-    await localDB.unlockedRewards.put(reward);
+    if (!reward.id || typeof reward.id !== 'string') continue;
+    const existing = await localDB.unlockedRewards.get(reward.id);
+    if (!existing) {
+      await localDB.unlockedRewards.put(reward);
+    }
   }
 
-  // Restore settings
+  // Restore settings (preserve existing local settings)
   for (const s of data.settings || []) {
-    await localDB.settings.put(s);
+    if (!s.key || typeof s.key !== 'string') continue;
+    const existing = await localDB.settings.get(s.key);
+    if (!existing) {
+      await localDB.settings.put(s);
+    }
   }
 
   // Restore PDF files if provided in backup
@@ -193,7 +240,7 @@ export async function restoreStudyFlowBackup(backup: unknown): Promise<{
     for (const [docId, base64] of Object.entries(data.pdfFiles)) {
       try {
         const buffer = base64ToArrayBuffer(base64);
-        const doc = data.documents.find((d) => d.id === docId);
+        const doc = (data.documents || []).find((d) => d.id === docId);
         const file = new File([buffer], `${doc?.title || docId}.pdf`, { type: 'application/pdf' });
         await savePdfToOPFS(docId, file);
         pdfsRestored++;

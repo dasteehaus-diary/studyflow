@@ -13,13 +13,14 @@ import {
 import { useSettings } from '@/lib/settings/settings-context';
 import { useAuth } from '@/lib/auth/auth-context';
 import { supabase } from '@/lib/supabase/client';
+import { clearSyncQueueOnly } from '@/lib/sync/sync-service';
 import { AuthButton } from '@/components/AuthButton';
 
 type SettingsTab = 'all' | 'appearance' | 'sync' | 'reminder' | 'data';
 
 export default function SettingsPage() {
   const { settings, updateSettings, isLoaded } = useSettings();
-  const { user, isConfigured: isSupabaseConfigured } = useAuth();
+  const { user, isConfigured: isSupabaseConfigured, syncState, triggerReconciliation } = useAuth();
 
   // Active Navigation Tab (Section 14)
   const [activeTab, setActiveTab] = useState<SettingsTab>('all');
@@ -124,6 +125,33 @@ export default function SettingsPage() {
   const handleRequestPersistent = async () => {
     const granted = await requestPersistentStorage();
     setPersistent(granted);
+  };
+
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
+
+  const handleClearSyncQueue = async () => {
+    try {
+      const cleared = await clearSyncQueueOnly();
+      setPendingSyncCount(0);
+      alert(`✓ Đã dọn dẹp ${cleared} tác vụ trong hàng đợi đồng bộ. Dữ liệu học tập trên máy vẫn được bảo toàn an toàn.`);
+    } catch (err) {
+      console.error('Failed to clear sync queue:', err);
+    }
+  };
+
+  const handleTriggerSync = async () => {
+    try {
+      setSyncStatusMsg('Đang đồng bộ dữ liệu...');
+      await triggerReconciliation();
+      if (localDB) {
+        const count = await localDB.syncQueue.count();
+        setPendingSyncCount(count);
+      }
+      setSyncStatusMsg('✓ Đồng bộ hoàn tất thành công!');
+      setTimeout(() => setSyncStatusMsg(null), 4000);
+    } catch (err) {
+      setSyncStatusMsg(`Lỗi đồng bộ: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   // Telegram: Save Configuration & Sync Cloud Data
@@ -550,6 +578,38 @@ export default function SettingsPage() {
                   {isSupabaseConfigured ? '● Đã kết nối Cloud' : '○ Chỉ lưu trên máy'}
                 </span>
               </div>
+
+              {isSupabaseConfigured && (
+                <div style={{ display: 'flex', gap: 10, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(169, 189, 165, 0.35)', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {user && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ fontSize: 12, padding: '7px 14px' }}
+                      disabled={syncState === 'reconciling'}
+                      onClick={handleTriggerSync}
+                    >
+                      {syncState === 'reconciling' ? '⏳ Đang đồng bộ…' : '🔄 Đồng bộ ngay với Cloud'}
+                    </button>
+                  )}
+                  {pendingSyncCount > 0 && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ fontSize: 12, padding: '7px 14px', color: 'var(--sf-coral)' }}
+                      onClick={handleClearSyncQueue}
+                    >
+                      🧹 Dọn hàng đợi ({pendingSyncCount} tác vụ)
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {syncStatusMsg && (
+                <div style={{ fontSize: 12, marginTop: 8, color: 'var(--sf-success)', fontWeight: 600 }}>
+                  {syncStatusMsg}
+                </div>
+              )}
             </section>
           )}
 
@@ -982,11 +1042,31 @@ export default function SettingsPage() {
                   <span style={{ color: 'var(--ink)' }}>{swActive ? 'Controlling' : 'None'}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted)' }}>
                   <span>Hàng đợi Sync</span>
-                  <span style={{ color: pendingSyncCount > 0 ? 'var(--sf-coral)' : 'var(--sf-success)' }}>
-                    {pendingSyncCount} tác vụ
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: pendingSyncCount > 0 ? 'var(--sf-coral)' : 'var(--sf-success)' }}>
+                      {pendingSyncCount} tác vụ
+                    </span>
+                    {pendingSyncCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearSyncQueue}
+                        title="Dọn hàng đợi đồng bộ an toàn (không ảnh hưởng dữ liệu)"
+                        style={{
+                          fontSize: 11,
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(232, 154, 141, 0.2)',
+                          color: 'var(--sf-coral)',
+                          border: '1px solid rgba(232, 154, 141, 0.4)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Dọn
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)' }}>
