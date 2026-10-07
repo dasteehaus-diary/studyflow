@@ -19,7 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('studyflow_theme')||'warm';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`
+            __html: `(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('studyflow_theme')||'warm';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`
           }}
         />
       </head>

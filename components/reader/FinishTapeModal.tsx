@@ -108,7 +108,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
       >
         {step === 'prompt' && (
           <div>
-            <div className="eyebrow" style={{ color: 'var(--terracotta)' }}>End of Tape</div>
+            <div className="eyebrow" style={{ color: 'var(--sf-orange)' }}>End of Tape</div>
             <h2 style={{ margin: '12px 0 8px' }}>Bạn đã đọc tới cuối tài liệu!</h2>
             <p className="muted" style={{ lineHeight: 1.6, marginBottom: 24 }}>
               Hoàn thành cuộn băng này để đánh dấu tài liệu là <strong>Completed</strong> và khám phá món quà bí ẩn trong <strong>B-Side Mystery Gift</strong>!
@@ -119,7 +119,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
                 Đọc tiếp
               </button>
               <button
-                className="primary"
+                className="primaryWarm"
                 style={{ padding: '10px 24px', fontSize: 15 }}
                 onClick={handleFinishTape}
               >
@@ -147,7 +147,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
 
         {step === 'revealed' && unlockedReward && (
           <div>
-            <div className="eyebrow" style={{ color: 'var(--terracotta)' }}>✨ B-Side Found! ✨</div>
+            <div className="eyebrow" style={{ color: 'var(--sf-orange)' }}>✨ B-Side Found! ✨</div>
             <div style={{ fontSize: 64, margin: '12px 0' }}>
               {(payload?.icon as string) || '🎁'}
             </div>
@@ -164,7 +164,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
               <div
                 style={{
                   background: 'var(--card-subtle)',
-                  border: '2px dashed var(--olive-cream)',
+                  border: '2px dashed var(--sf-line)',
                   borderRadius: 12,
                   padding: 14,
                   margin: '12px 0',
@@ -203,7 +203,7 @@ export function FinishTapeModal({ document, isOpen, onClose, onFinishTapeComplet
                 }}
               >
                 <div style={{ fontSize: 16, letterSpacing: 1 }}>{payload?.memeHeader as string}</div>
-                <div style={{ fontSize: 14, marginTop: 10, whiteSpace: 'pre-line', color: 'var(--apricot)' }}>
+                <div style={{ fontSize: 14, marginTop: 10, whiteSpace: 'pre-line', color: 'var(--sf-orange)' }}>
                   {payload?.memeFooter as string}
                 </div>
               </div>

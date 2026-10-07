@@ -85,16 +85,31 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
               display: 'inline-flex',
               alignItems: 'center',
               gap: 4,
-              background: 'var(--sf-mint-soft)',
-              color: 'var(--sf-mint-strong)',
-              fontSize: 11,
+              background: isCompleted ? 'var(--sf-mint-soft)' : 'var(--sf-orange-soft)',
+              color: isCompleted ? 'var(--sf-mint-strong)' : '#B3581E',
+              border: `1px solid ${isCompleted ? 'var(--sf-mint)' : 'rgba(240, 161, 94, 0.35)'}`,
+              fontSize: 10,
               fontWeight: 700,
               padding: '2px 8px',
               borderRadius: 6,
-              letterSpacing: '0.02em'
+              letterSpacing: '0.03em'
             }}
           >
             {isCompleted ? '✓ ĐÃ HOÀN THÀNH' : '▶ TIẾP TỤC ĐỌC'}
+          </span>
+          <span
+            style={{
+              background: 'var(--sf-coral-soft)',
+              color: 'var(--sf-coral)',
+              border: '1px solid rgba(228, 119, 104, 0.3)',
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: 6,
+              letterSpacing: '0.04em'
+            }}
+          >
+            PDF
           </span>
           <span className="muted" style={{ fontSize: 12 }}>
             · {lastActive}
@@ -123,22 +138,22 @@ export function ContinueCard({ document, progress, activeParkingNote }: Continue
           <div
             style={{
               fontSize: 13,
-              background: 'var(--sf-surface-soft)',
+              background: 'var(--sf-blue-soft)',
               padding: '8px 12px',
               borderRadius: 10,
-              border: '1px solid var(--sf-line)',
-              borderLeft: '3px solid var(--sf-mint-strong)',
+              border: '1px solid rgba(151, 183, 207, 0.35)',
+              borderLeft: '3px solid var(--sf-blue)',
               color: 'var(--ink)',
               display: 'flex',
               alignItems: 'flex-start',
               gap: 8
             }}
           >
-            <span style={{ flexShrink: 0, marginTop: 1, color: 'var(--sf-mint-strong)' }}>
+            <span style={{ flexShrink: 0, marginTop: 1, color: '#3E637E' }}>
               <IconParkingNote size={16} />
             </span>
             <div style={{ wordBreak: 'break-word' }}>
-              <span style={{ fontWeight: 600, color: 'var(--sf-mint-strong)' }}>Lần trước:</span> “
+              <span style={{ fontWeight: 600, color: '#3E637E' }}>Lần trước:</span> “
               {activeParkingNote.noteText}”
             </div>
           </div>

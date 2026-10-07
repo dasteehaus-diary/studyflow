@@ -63,7 +63,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className={isActive ? 'navActive' : ''}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon size={19} />
+                  <span style={{ display: 'flex', color: isActive ? 'var(--sf-orange)' : 'inherit', transition: 'color 0.15s ease' }}>
+                    <Icon size={19} />
+                  </span>
                   <span>{label}</span>
                 </Link>
               );

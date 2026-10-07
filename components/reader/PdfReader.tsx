@@ -1167,7 +1167,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                 gap: 6,
                 padding: '6px 12px',
                 marginLeft: 4,
-                ...(notesOpen ? { background: 'var(--sf-apricot-soft)', color: 'var(--sf-terracotta)', borderColor: 'rgba(233, 161, 122, 0.45)' } : {})
+                ...(notesOpen ? { background: 'var(--sf-mint-soft)', color: 'var(--sf-mint-strong)', borderColor: 'var(--sf-mint)' } : {})
               }}
               onClick={() => setNotesOpen(!notesOpen)}
               title="Mở ghi chú (N)"
@@ -1177,7 +1177,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               {notes.length > 0 && (
                 <span
                   style={{
-                    background: notesOpen ? 'var(--sf-terracotta)' : 'var(--sf-apricot)',
+                    background: notesOpen ? 'var(--sf-mint-strong)' : 'var(--sf-orange)',
                     color: 'white',
                     borderRadius: 999,
                     fontSize: 10,
@@ -1454,7 +1454,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
               file={pdfFile}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div style={{ padding: 40, color: 'var(--muted)' }}>Đang chuẩn bị trang PDF…</div>}
-              error={<div style={{ padding: 40, color: 'var(--terracotta)' }}>Lỗi khi hiển thị file PDF.</div>}
+              error={<div style={{ padding: 40, color: 'var(--sf-coral)' }}>Lỗi khi hiển thị file PDF.</div>}
             >
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
                 // Windowing / virtualization: render pages in active window [currentPage - 1, currentPage, currentPage + 1]
@@ -1637,7 +1637,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                   padding: '5px 12px',
                   fontSize: 12,
                   whiteSpace: 'nowrap',
-                  background: doc?.status === 'completed' ? 'var(--olive)' : 'var(--terracotta)'
+                  background: doc?.status === 'completed' ? 'var(--sf-mint-strong)' : 'var(--sf-orange)'
                 }}
                 onClick={() => setFinishTapeOpen(true)}
               >

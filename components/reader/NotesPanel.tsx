@@ -399,14 +399,14 @@ export function NotesPanel({
           </button>
           <button
             className="secondary"
-            style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'open' ? { fontWeight: 700, color: 'var(--rose)' } : {}) }}
+            style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'open' ? { fontWeight: 700, color: 'var(--sf-coral)' } : {}) }}
             onClick={() => setQuestionFilter('open')}
           >
             Chưa giải quyết
           </button>
           <button
             className="secondary"
-            style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'resolved' ? { fontWeight: 700, color: 'var(--olive)' } : {}) }}
+            style={{ fontSize: 11, padding: '2px 8px', ...(questionFilter === 'resolved' ? { fontWeight: 700, color: 'var(--sf-mint-strong)' } : {}) }}
             onClick={() => setQuestionFilter('resolved')}
           >
             Đã giải quyết
@@ -478,7 +478,7 @@ export function NotesPanel({
               style={{
                 fontSize: 11,
                 padding: '3px 8px',
-                ...(composerType === 'quick' ? { background: 'var(--sf-apricot)', color: 'white', borderColor: 'var(--sf-apricot)' } : {})
+                ...(composerType === 'quick' ? { background: 'var(--sf-orange)', color: 'white', borderColor: 'var(--sf-orange)' } : {})
               }}
               onClick={() => setComposerType('quick')}
             >
@@ -490,7 +490,7 @@ export function NotesPanel({
               style={{
                 fontSize: 11,
                 padding: '3px 8px',
-                ...(composerType === 'question' ? { background: 'var(--sf-rose)', color: 'white', borderColor: 'var(--sf-rose)' } : {})
+                ...(composerType === 'question' ? { background: 'var(--sf-coral)', color: 'white', borderColor: 'var(--sf-coral)' } : {})
               }}
               onClick={() => setComposerType('question')}
             >
@@ -514,7 +514,7 @@ export function NotesPanel({
             <div
               style={{
                 fontSize: 12,
-                borderLeft: '3px solid var(--sf-apricot)',
+                borderLeft: '3px solid var(--sf-orange)',
                 paddingLeft: 8,
                 color: 'var(--muted)',
                 maxHeight: 60,
@@ -622,10 +622,10 @@ export function NotesPanel({
     const isEditing = editingNoteId === note.id;
 
     const indicatorColor = isParking
-      ? 'var(--sf-mint)'
+      ? 'var(--sf-blue)'
       : isQuestion
       ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
-      : 'var(--sf-mint-strong)';
+      : 'var(--sf-orange)';
 
     return (
       <div
@@ -649,7 +649,7 @@ export function NotesPanel({
               background: 'none',
               border: 0,
               padding: 0,
-              color: isParking ? 'var(--sf-mint-strong)' : indicatorColor,
+              color: isParking ? '#3E637E' : indicatorColor,
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -796,7 +796,7 @@ export function NotesPanel({
                   </button>
                   <button
                     className="primary"
-                    style={{ fontSize: 11, padding: '2px 10px', background: 'var(--olive)' }}
+                    style={{ fontSize: 11, padding: '2px 10px', background: 'var(--sf-mint-strong)' }}
                     onClick={() => handleResolveQuestion(note)}
                   >
                     Xác nhận giải quyết
@@ -816,7 +816,7 @@ export function NotesPanel({
                     fontSize: 11,
                     padding: '2px 8px',
                     marginLeft: 'auto',
-                    color: isResolved ? 'var(--muted)' : 'var(--olive)'
+                    color: isResolved ? 'var(--muted)' : 'var(--sf-mint-strong)'
                   }}
                   onClick={() => {
                     if (isResolved) {

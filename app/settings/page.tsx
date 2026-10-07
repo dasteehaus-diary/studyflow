@@ -560,8 +560,8 @@ export default function SettingsPage() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    background: 'var(--sf-mint-soft)',
-                    color: 'var(--sf-mint-strong)',
+                    background: 'var(--sf-blue-soft)',
+                    color: '#3E637E',
                     display: 'grid',
                     placeItems: 'center',
                     fontSize: 18
@@ -598,9 +598,9 @@ export default function SettingsPage() {
                     fontWeight: 600,
                     padding: '4px 12px',
                     borderRadius: 8,
-                    background: isSupabaseConfigured ? 'rgba(94, 132, 106, 0.2)' : 'rgba(175, 196, 212, 0.3)',
-                    color: isSupabaseConfigured ? 'var(--sf-success)' : 'var(--muted)',
-                    border: `1px solid ${isSupabaseConfigured ? 'rgba(94, 132, 106, 0.4)' : 'var(--line)'}`
+                    background: isSupabaseConfigured ? 'var(--sf-mint-soft)' : 'var(--sf-blue-soft)',
+                    color: isSupabaseConfigured ? 'var(--sf-mint-strong)' : '#3E637E',
+                    border: `1px solid ${isSupabaseConfigured ? 'var(--sf-mint)' : 'rgba(151, 183, 207, 0.4)'}`
                   }}
                 >
                   {isSupabaseConfigured ? '● Đã kết nối Cloud' : '○ Chỉ lưu trên máy'}
@@ -608,7 +608,7 @@ export default function SettingsPage() {
               </div>
 
               {isSupabaseConfigured && (
-                <div style={{ display: 'flex', gap: 10, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(169, 189, 165, 0.35)', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--sf-line)', flexWrap: 'wrap', alignItems: 'center' }}>
                   {user && (
                     <button
                       type="button"
@@ -634,7 +634,7 @@ export default function SettingsPage() {
               )}
 
               {syncStatusMsg && (
-                <div style={{ fontSize: 12, marginTop: 8, color: 'var(--sf-success)', fontWeight: 600 }}>
+                <div style={{ fontSize: 12, marginTop: 8, color: 'var(--sf-mint-strong)', fontWeight: 600 }}>
                   {syncStatusMsg}
                 </div>
               )}
@@ -659,8 +659,8 @@ export default function SettingsPage() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    background: 'var(--sf-coral-soft)',
-                    color: 'var(--sf-coral)',
+                    background: 'var(--sf-orange-soft)',
+                    color: 'var(--sf-orange)',
                     display: 'grid',
                     placeItems: 'center',
                     fontSize: 18
@@ -718,7 +718,7 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {/* Action Buttons: Primary Sage + Secondary */}
+              {/* Action Buttons: Primary Mint + Secondary */}
               <div style={{ display: 'flex', gap: 12, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
@@ -741,7 +741,7 @@ export default function SettingsPage() {
               </div>
 
               {saveStatusMsg && (
-                <div style={{ fontSize: 13, marginTop: 12, color: 'var(--sf-success)', fontWeight: 600 }}>
+                <div style={{ fontSize: 13, marginTop: 12, color: 'var(--sf-mint-strong)', fontWeight: 600 }}>
                   {saveStatusMsg}
                 </div>
               )}
@@ -783,8 +783,8 @@ export default function SettingsPage() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    background: 'var(--sf-mint-soft)',
-                    color: 'var(--sf-mint-strong)',
+                    background: 'var(--sf-blue-soft)',
+                    color: '#3E637E',
                     display: 'grid',
                     placeItems: 'center',
                     fontSize: 18

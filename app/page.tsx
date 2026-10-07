@@ -188,7 +188,7 @@ export default function HomePage() {
         </div>
 
         <button
-          className="primary"
+          className="primaryWarm"
           style={{ padding: '8px 14px', fontSize: 13 }}
           onClick={() => {
             setRelinkTarget(null);
@@ -263,7 +263,7 @@ export default function HomePage() {
             Chọn PDF đầu tiên để StudyFlow ghi nhớ mạch đọc. File PDF hoàn toàn lưu riêng tư trên máy của bạn (Local-First).
           </p>
           <button
-            className="primary"
+            className="primaryWarm"
             onClick={() => {
               setRelinkTarget(null);
               setIsImportOpen(true);
@@ -314,12 +314,12 @@ export default function HomePage() {
                     width: 44,
                     height: 44,
                     borderRadius: '50%',
-                    background: 'var(--sf-surface-soft)',
-                    border: '1px solid var(--sf-line)',
+                    background: 'var(--sf-orange-soft)',
+                    border: '1px solid rgba(240, 161, 94, 0.35)',
                     display: 'grid',
                     placeItems: 'center',
                     margin: '0 auto 10px',
-                    color: 'var(--sf-mint-strong)'
+                    color: 'var(--sf-orange)'
                   }}
                 >
                   <IconPlus size={22} />

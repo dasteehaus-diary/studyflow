@@ -93,10 +93,12 @@ export function VaultPage() {
               const payload = reward.payload as Record<string, unknown>;
               const icon = (payload.icon as string) || '🎁';
               const ARTWORK_TINTS = [
+                'var(--sf-orange-soft)',
                 'var(--sf-mint-soft)',
-                'var(--sf-lime-soft)',
                 'var(--sf-coral-soft)',
-                'var(--sf-yellow-soft)'
+                'var(--sf-blue-soft)',
+                'var(--sf-butter-soft)',
+                'var(--sf-lavender-soft)'
               ];
               const tint = ARTWORK_TINTS[idx % ARTWORK_TINTS.length];
 
@@ -272,7 +274,7 @@ export function VaultPage() {
               {activeModalReward.rewardTitle}
             </h3>
 
-            <div className="eyebrow" style={{ marginBottom: 16, color: 'var(--sage)' }}>
+            <div className="eyebrow" style={{ marginBottom: 16, color: 'var(--sf-mint-strong)' }}>
               {activeModalReward.rewardType === 'audio' ? 'Âm thanh kỷ niệm' : 'Bưu thiếp kỷ niệm'}
             </div>
 

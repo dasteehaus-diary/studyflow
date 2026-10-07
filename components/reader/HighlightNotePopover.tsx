@@ -474,9 +474,9 @@ export function HighlightNotePopover({
                   padding: '2px 8px',
                   borderRadius: 6,
                   fontWeight: 700,
-                  background: isResolved ? 'var(--sf-sage-soft)' : 'var(--sf-rose-soft)',
-                  color: isResolved ? 'var(--sf-sage)' : 'var(--sf-rose)',
-                  border: `1px solid ${isResolved ? 'rgba(111, 141, 119, 0.4)' : 'rgba(217, 131, 131, 0.4)'}`
+                  background: isResolved ? 'var(--sf-mint-soft)' : 'var(--sf-coral-soft)',
+                  color: isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)',
+                  border: `1px solid ${isResolved ? 'var(--sf-mint)' : 'rgba(228, 119, 104, 0.4)'}`
                 }}
               >
                 {isResolved ? '✓ Đã giải quyết' : '❓ Chưa giải quyết'}
@@ -488,9 +488,9 @@ export function HighlightNotePopover({
                 style={{
                   fontSize: 10,
                   padding: '2px 8px',
-                  color: isResolved ? 'var(--muted)' : 'var(--sf-sage)',
-                  background: isResolved ? 'var(--card-subtle)' : 'var(--sf-sage-soft)',
-                  border: `1px solid ${isResolved ? 'var(--line)' : 'rgba(111, 141, 119, 0.4)'}`
+                  color: isResolved ? 'var(--muted)' : 'var(--sf-mint-strong)',
+                  background: isResolved ? 'var(--card-subtle)' : 'var(--sf-mint-soft)',
+                  border: `1px solid ${isResolved ? 'var(--line)' : 'var(--sf-mint)'}`
                 }}
                 onClick={() => onToggleQuestionStatus(linkedNote)}
               >
@@ -533,7 +533,7 @@ export function HighlightNotePopover({
                 <button
                   type="button"
                   className="secondary"
-                  style={{ fontSize: 10, padding: '3px 8px', color: 'var(--rose)' }}
+                  style={{ fontSize: 10, padding: '3px 8px', color: 'var(--sf-coral)' }}
                   onClick={() => onConvertNoteType(linkedNote, 'question')}
                   title="Biến ghi chú này thành câu hỏi"
                 >

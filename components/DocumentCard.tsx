@@ -266,9 +266,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
               position: 'absolute',
               top: 8,
               right: 8,
-              background: 'rgba(255, 255, 255, 0.88)',
-              color: 'var(--sf-ink)',
-              border: '1px solid rgba(0, 0, 0, 0.08)',
+              background: 'var(--sf-coral-soft)',
+              color: 'var(--sf-coral)',
+              border: '1px solid rgba(228, 119, 104, 0.35)',
               padding: '2px 6px',
               borderRadius: 6,
               fontSize: 9,
@@ -280,6 +280,27 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
           >
             PDF
           </span>
+
+          {document.status === 'in_progress' && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                background: 'var(--sf-mint-soft)',
+                color: 'var(--sf-mint-strong)',
+                border: '1px solid var(--sf-mint)',
+                padding: '3px 8px',
+                borderRadius: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                zIndex: 2,
+                backdropFilter: 'blur(4px)'
+              }}
+            >
+              ▶ Đang đọc
+            </span>
+          )}
 
           {document.status === 'completed' && (
             <span
@@ -308,9 +329,9 @@ export function DocumentCard({ document, progress, onRelinkRequest, onChanged }:
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                background: 'var(--sf-surface-soft)',
-                color: 'var(--sf-muted)',
-                border: '1px solid var(--sf-line)',
+                background: 'var(--sf-blue-soft)',
+                color: '#3E637E',
+                border: '1px solid rgba(151, 183, 207, 0.4)',
                 padding: '3px 8px',
                 borderRadius: 8,
                 fontSize: 10,

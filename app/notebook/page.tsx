@@ -257,10 +257,10 @@ export function NotebookPage() {
           <span className="muted" style={{ fontSize: 12, marginRight: 4, fontWeight: 600 }}>Loại:</span>
           {[
             ['all', `Tất cả (${unifiedItems.length})`, 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)'],
-            ['highlights', `Trích dẫn (${highlightsList.length})`, 'var(--sf-yellow-soft)', '#8A7A28', 'var(--sf-yellow)'],
-            ['quick', 'Ghi chú', 'var(--sf-mint-soft)', 'var(--sf-mint-strong)', 'var(--sf-mint)'],
+            ['highlights', `Trích dẫn (${highlightsList.length})`, 'var(--sf-butter-soft)', '#7B6215', 'var(--sf-butter)'],
+            ['quick', 'Ghi chú', 'var(--sf-orange-soft)', '#A05B20', 'var(--sf-orange)'],
             ['question', 'Câu hỏi', 'var(--sf-coral-soft)', 'var(--sf-coral)', 'var(--sf-coral)'],
-            ['parking', 'Parking Note', 'var(--sf-lime-soft)', '#6E7924', 'var(--sf-lime)']
+            ['parking', 'Parking Note', 'var(--sf-blue-soft)', '#3E637E', 'var(--sf-blue)']
           ].map(([key, label, activeBg, activeColor, activeBorder]) => {
             const isAct = primaryFilter === key;
             return (
@@ -338,28 +338,28 @@ export function NotebookPage() {
             const isEditing = editingNoteId === item.id;
 
             const indicatorColor = isHighlight
-              ? 'var(--sf-yellow)'
+              ? 'var(--sf-butter)'
               : isParking
-              ? 'var(--sf-mint)'
+              ? 'var(--sf-blue)'
               : isQuestion
               ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
-              : 'var(--sf-mint-strong)';
+              : 'var(--sf-orange)';
 
             const badgeBg = isHighlight
-              ? 'var(--sf-yellow-soft)'
+              ? 'var(--sf-butter-soft)'
               : isParking
-              ? 'var(--sf-mint-soft)'
+              ? 'var(--sf-blue-soft)'
               : isQuestion
               ? (isResolved ? 'var(--sf-mint-soft)' : 'var(--sf-coral-soft)')
-              : 'var(--sf-mint-soft)';
+              : 'var(--sf-orange-soft)';
 
             const badgeColor = isHighlight
-              ? '#8A7A28'
+              ? '#7B6215'
               : isParking
-              ? 'var(--sf-mint-strong)'
+              ? '#3E637E'
               : isQuestion
               ? (isResolved ? 'var(--sf-mint-strong)' : 'var(--sf-coral)')
-              : 'var(--sf-mint-strong)';
+              : '#A05B20';
 
             const targetUrl = `/reader/${item.documentId}?page=${item.page}&y=${item.y}${item.highlightId ? `&highlight=${item.highlightId}` : ''}`;
 

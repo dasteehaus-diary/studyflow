@@ -1,5 +1,5 @@
 :root, [data-theme="warm"], [data-theme="light"] {
-  /* Clean Soft Minimal Palette (Section 3) */
+  /* Clean Soft Minimal Multi-Accent Palette */
   --sf-bg: #F6F7F5;
   --sf-surface: #FFFFFF;
   --sf-surface-soft: #F1F3F0;
@@ -8,18 +8,30 @@
   --sf-muted: #747A77;
   --sf-line: #E0E4E1;
 
-  --sf-mint: #B8CDC6;
-  --sf-mint-strong: #78998E;
-  --sf-mint-soft: #EAF2EF;
+  /* Main */
+  --sf-mint: #9CB8AA;
+  --sf-mint-strong: #6F9281;
+  --sf-mint-soft: #E8F1EC;
 
-  --sf-lime: #E6EE9B;
-  --sf-lime-soft: #F4F7D8;
+  /* Warm Accent */
+  --sf-orange: #F0A15E;
+  --sf-orange-soft: #FBECDD;
 
-  --sf-coral: #E69A8D;
-  --sf-coral-soft: #F9E9E5;
+  /* Coral / Red Accent */
+  --sf-coral: #E47768;
+  --sf-coral-soft: #F9E5E1;
 
-  --sf-yellow: #F1DEA2;
-  --sf-yellow-soft: #FBF5DC;
+  /* Informational */
+  --sf-blue: #97B7CF;
+  --sf-blue-soft: #EAF1F6;
+
+  /* Highlight / Sticky */
+  --sf-butter: #EED27A;
+  --sf-butter-soft: #FBF4D8;
+
+  /* Optional playful only */
+  --sf-lavender: #BBA9D6;
+  --sf-lavender-soft: #F0ECF6;
 
   /* Aliases & Semantic Mappings */
   --bg: var(--sf-bg);
@@ -39,50 +51,48 @@
   --line: var(--sf-line);
 
   --sf-primary-cta: var(--sf-mint-strong);
-  --sf-danger: #D9685A;
+  --sf-danger: var(--sf-coral);
   --sf-success: var(--sf-mint-strong);
 
   --mint: var(--sf-mint);
   --mint-strong: var(--sf-mint-strong);
   --mint-soft: var(--sf-mint-soft);
-  --lime: var(--sf-lime);
-  --lime-soft: var(--sf-lime-soft);
+  --orange: var(--sf-orange);
+  --orange-soft: var(--sf-orange-soft);
   --coral: var(--sf-coral);
   --coral-soft: var(--sf-coral-soft);
-  --yellow: var(--sf-yellow);
-  --yellow-soft: var(--sf-yellow-soft);
+  --blue: var(--sf-blue);
+  --blue-soft: var(--sf-blue-soft);
+  --butter: var(--sf-butter);
+  --butter-soft: var(--sf-butter-soft);
+  --lavender: var(--sf-lavender);
+  --lavender-soft: var(--sf-lavender-soft);
   --deep: #252B29;
 
   /* Backward-compatible aliases */
-  --terracotta: var(--sf-mint-strong);
+  --terracotta: var(--sf-orange);
   --sage: var(--sf-mint-strong);
   --sage-soft: var(--sf-mint-soft);
-  --blue: var(--sf-mint);
-  --blue-soft: var(--sf-mint-soft);
-  --dusty-blue: var(--sf-mint);
-  --dusty-blue-soft: var(--sf-mint-soft);
+  --dusty-blue: var(--sf-blue);
+  --dusty-blue-soft: var(--sf-blue-soft);
   --rose: var(--sf-coral);
   --rose-soft: var(--sf-coral-soft);
-  --apricot: var(--sf-yellow);
-  --apricot-soft: var(--sf-yellow-soft);
+  --apricot: var(--sf-orange);
+  --apricot-soft: var(--sf-orange-soft);
   --olive: var(--sf-mint-strong);
-  --olive-soft: var(--sf-lime-soft);
-  --butter: var(--sf-yellow);
-  --butter-soft: var(--sf-yellow-soft);
-  --lavender: #C8BED8;
-  --lavender-soft: #F0ECF5;
+  --olive-soft: var(--sf-mint-soft);
 
-  --banner-warn-bg: var(--sf-yellow-soft);
-  --banner-warn-border: rgba(241, 222, 162, 0.6);
+  --banner-warn-bg: var(--sf-butter-soft);
+  --banner-warn-border: rgba(238, 210, 122, 0.6);
   --banner-warn-text: #6b5514;
   --banner-success-bg: var(--sf-mint-soft);
-  --banner-success-border: rgba(120, 153, 142, 0.4);
+  --banner-success-border: rgba(111, 146, 129, 0.4);
   --banner-success-text: #2f5446;
   --banner-error-bg: var(--sf-coral-soft);
-  --banner-error-border: rgba(230, 154, 141, 0.6);
+  --banner-error-border: rgba(228, 119, 104, 0.6);
   --banner-error-text: #963529;
 
-  --sticky-bg: var(--sf-yellow-soft);
+  --sticky-bg: var(--sf-butter-soft);
   --sticky-border: #E8DEB0;
 
   --shadow-sm: 0 2px 8px rgba(37, 43, 41, 0.04);
@@ -106,18 +116,24 @@
   --sf-muted: #8F9792;
   --sf-line: #2C3530;
 
-  --sf-mint: #8EAFA4;
+  --sf-mint: #9CB8AA;
   --sf-mint-strong: #78998E;
-  --sf-mint-soft: rgba(184, 205, 198, 0.14);
+  --sf-mint-soft: rgba(156, 184, 170, 0.16);
 
-  --sf-lime: #D0DC7A;
-  --sf-lime-soft: rgba(230, 238, 155, 0.14);
+  --sf-orange: #F0A15E;
+  --sf-orange-soft: rgba(240, 161, 94, 0.16);
 
-  --sf-coral: #E69A8D;
-  --sf-coral-soft: rgba(230, 154, 141, 0.16);
+  --sf-coral: #E47768;
+  --sf-coral-soft: rgba(228, 119, 104, 0.16);
 
-  --sf-yellow: #E5CD8E;
-  --sf-yellow-soft: rgba(241, 222, 162, 0.14);
+  --sf-blue: #97B7CF;
+  --sf-blue-soft: rgba(151, 183, 207, 0.16);
+
+  --sf-butter: #EED27A;
+  --sf-butter-soft: rgba(238, 210, 122, 0.16);
+
+  --sf-lavender: #BBA9D6;
+  --sf-lavender-soft: rgba(187, 169, 214, 0.16);
 
   --bg: var(--sf-bg);
   --panel: var(--sf-surface);
@@ -136,7 +152,7 @@
   --deep: #5A6B65;
 
   --sf-primary-cta: var(--sf-mint-strong);
-  --sf-danger: #E0786C;
+  --sf-danger: var(--sf-coral);
   --sf-success: var(--sf-mint-strong);
 
   --banner-warn-bg: #2d2613;
@@ -149,8 +165,8 @@
   --banner-error-border: #5c2c2c;
   --banner-error-text: #f19393;
 
-  --sticky-bg: rgba(241, 222, 162, 0.10);
-  --sticky-border: rgba(241, 222, 162, 0.20);
+  --sticky-bg: rgba(238, 210, 122, 0.10);
+  --sticky-border: rgba(238, 210, 122, 0.20);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
@@ -334,7 +350,7 @@ h3 {
   font-weight: 700;
 }
 
-/* Primary Button: Mint Strong (Section 4 & 14) */
+/* Primary Button: Mint Strong */
 .primary {
   border: 0;
   background: var(--sf-mint-strong);
@@ -347,21 +363,21 @@ h3 {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 2px 8px rgba(120, 153, 142, 0.25);
+  box-shadow: 0 2px 8px rgba(111, 146, 129, 0.25);
   transition: opacity 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
 .primary:hover {
-  background: #68877D;
+  background: #5E7E6E;
   transform: translateY(-1px);
 }
 .primary:active {
   transform: translateY(0);
 }
 
-/* Special Warm Action Button: Coral */
-.primaryAccent, .btnWarm, .btnTerracotta {
+/* Warm Primary / Special Action Button: Orange (Thêm PDF, Finish Tape, etc.) */
+.primaryWarm, .btnWarm, .btnOrange, .primaryAccent {
   border: 0;
-  background: var(--sf-coral);
+  background: var(--sf-orange);
   color: #FFFFFF;
   padding: 10px 18px;
   border-radius: 12px;
@@ -371,12 +387,15 @@ h3 {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 2px 8px rgba(230, 154, 141, 0.25);
+  box-shadow: 0 2px 8px rgba(240, 161, 94, 0.28);
   transition: opacity 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
-.primaryAccent:hover, .btnWarm:hover, .btnTerracotta:hover {
-  background: #D8897C;
+.primaryWarm:hover, .btnWarm:hover, .btnOrange:hover, .primaryAccent:hover {
+  background: #DE8F4B;
   transform: translateY(-1px);
+}
+.primaryWarm:active, .btnWarm:active, .btnOrange:active, .primaryAccent:active {
+  transform: translateY(0);
 }
 
 .secondary {
@@ -398,54 +417,72 @@ h3 {
 }
 .secondary.danger, .btnDanger {
   color: var(--sf-coral);
-  border-color: rgba(230, 154, 141, 0.4);
+  border-color: rgba(228, 119, 104, 0.4);
   background: var(--sf-coral-soft);
 }
 .secondary.danger:hover, .btnDanger:hover {
-  background: rgba(230, 154, 141, 0.22);
+  background: rgba(228, 119, 104, 0.22);
 }
 
-/* Semantic Badges / Chips (Section 15) */
+.btnInfo {
+  color: #3E637E;
+  background: var(--sf-blue-soft);
+  border: 1px solid rgba(151, 183, 207, 0.4);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Semantic Badges / Chips */
 .badgePdf {
-  background: var(--sf-surface-soft);
-  color: var(--sf-muted);
-  border: 1px solid var(--sf-line);
+  background: var(--sf-coral-soft);
+  color: var(--sf-coral);
+  border: 1px solid rgba(228, 119, 104, 0.35);
 }
 
 .badgeReading {
   background: var(--sf-mint-soft);
   color: var(--sf-mint-strong);
-  border: 1px solid rgba(120, 153, 142, 0.25);
+  border: 1px solid rgba(111, 146, 129, 0.25);
 }
 
 .badgeCompleted {
   background: var(--sf-mint-soft);
   color: var(--sf-mint-strong);
-  border: 1px solid rgba(120, 153, 142, 0.25);
+  border: 1px solid rgba(111, 146, 129, 0.25);
 }
 
 .badgeQuestion {
   background: var(--sf-coral-soft);
-  color: #B3584B;
-  border: 1px solid rgba(230, 154, 141, 0.35);
+  color: var(--sf-coral);
+  border: 1px solid rgba(228, 119, 104, 0.35);
 }
 
 .badgeParking {
-  background: var(--sf-mint-soft);
-  color: var(--sf-mint-strong);
-  border: 1px solid rgba(120, 153, 142, 0.25);
+  background: var(--sf-blue-soft);
+  color: #3E637E;
+  border: 1px solid rgba(151, 183, 207, 0.4);
 }
 
-.badgeNote, .badgeHighlight {
-  background: var(--sf-yellow-soft);
-  color: #8A7228;
-  border: 1px solid rgba(241, 222, 162, 0.45);
+.badgeNote {
+  background: var(--sf-orange-soft);
+  color: #A05B20;
+  border: 1px solid rgba(240, 161, 94, 0.35);
+}
+
+.badgeHighlight {
+  background: var(--sf-butter-soft);
+  color: #7B6215;
+  border: 1px solid rgba(238, 210, 122, 0.45);
 }
 
 .badgeBSide {
-  background: var(--sf-lime-soft);
-  color: #556626;
-  border: 1px solid rgba(230, 238, 155, 0.5);
+  background: var(--sf-lavender-soft);
+  color: #6E5C8E;
+  border: 1px solid rgba(187, 169, 214, 0.45);
 }
 
 /* Settings 2-Column Layout & Tabs (Section 12) */
