@@ -10,6 +10,7 @@ interface PdfPageItemProps {
   scale: number;
   isMounted: boolean;
   estimatedHeight: number;
+  pageDimensions?: { width: number; height: number } | null;
   highlights: LocalHighlight[];
   notesByHighlightId?: Record<string, LocalNote>;
   onTextSelected: (pageNumber: number, text: string, rects: LocalHighlight['rects'], clientPos: { x: number; y: number }) => void;
@@ -31,6 +32,7 @@ export function PdfPageItem({
   scale,
   isMounted,
   estimatedHeight,
+  pageDimensions,
   highlights,
   notesByHighlightId,
   onTextSelected,
@@ -85,24 +87,29 @@ export function PdfPageItem({
   };
 
   if (!isMounted) {
+    const expectedWidth = pageDimensions ? `${Math.round(pageDimensions.width * scale)}px` : 'min(820px, 92vw)';
     return (
       <div
         id={`page-container-${pageNumber}`}
         ref={setContainerRef}
         style={{
-          width: 'min(820px, 92vw)',
+          width: expectedWidth,
+          maxWidth: '100%',
           height: estimatedHeight,
-          background: 'white',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          borderRadius: 8,
+          background: 'var(--sf-surface)',
+          border: '1px solid var(--sf-line)',
+          boxShadow: 'var(--sf-shadow-sm)',
+          borderRadius: 4,
           margin: '0 auto 24px',
           display: 'grid',
           placeItems: 'center',
-          color: 'var(--muted)',
+          color: 'var(--sf-muted)',
           fontSize: 13
         }}
       >
-        Trang {pageNumber} (đang cuộn…)
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.6 }}>
+          <span>Trang {pageNumber}</span>
+        </div>
       </div>
     );
   }

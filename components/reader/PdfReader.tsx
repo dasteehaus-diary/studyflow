@@ -34,6 +34,8 @@ if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 }
 
+export type RestoreLifecycleState = 'loading' | 'preparing' | 'restoring' | 'ready';
+
 interface PdfReaderProps {
   documentId: string;
   initialPage?: number;
@@ -53,6 +55,24 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   const [totalPages, setTotalPages] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(initialPage || 1);
   const [currentY, setCurrentY] = useState<number>(initialY || 0);
+
+  // Restore Lifecycle State (Requirements 1, 2, 4, 7)
+  const [restoreState, setRestoreState] = useState<RestoreLifecycleState>('loading');
+  const restoreStateRef = useRef<RestoreLifecycleState>('loading');
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const restoreRafRef = useRef<number | null>(null);
+  const lastAnchoredScaleRef = useRef<number>(1.15);
+
+  useEffect(() => {
+    restoreStateRef.current = restoreState;
+  }, [restoreState]);
+
+  // Target locator to restore to (from explicit props or saved progress)
+  const restoreTarget = useMemo(() => {
+    const page = initialPage || progress?.currentPage || 1;
+    const y = initialY !== undefined ? initialY : (progress?.y || 0);
+    return { page, y };
+  }, [initialPage, initialY, progress?.currentPage, progress?.y]);
 
   // UI modes & Reader view state
   const [notesOpen, setNotesOpen] = useState(false);
@@ -136,7 +156,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     const stage = stageRef.current;
     const stageWidth = stage.clientWidth;
     const stageHeight = stage.clientHeight;
-    if (stageWidth <= 0 || pageDimensions.width <= 0) return;
+    if (stageWidth <= 100 || pageDimensions.width <= 10) return;
 
     // Available stage width and height excluding comfortable padding
     const availableWidth = Math.max(260, stageWidth - 48);
@@ -144,14 +164,15 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
     if (fitMode === 'fit-width') {
       const calculatedScale = Number((availableWidth / pageDimensions.width).toFixed(3));
-      const clampedScale = Math.max(0.4, Math.min(3.0, calculatedScale));
-      setScale(clampedScale);
+      // Clamp to sensible reading scale range (Requirement 9)
+      const clampedScale = Math.max(0.5, Math.min(2.5, calculatedScale));
+      setScale(prev => (Math.abs(prev - clampedScale) >= 0.02 ? clampedScale : prev));
     } else if (fitMode === 'fit-page') {
       const scaleX = availableWidth / pageDimensions.width;
       const scaleY = availableHeight / pageDimensions.height;
       const calculatedScale = Number((Math.min(scaleX, scaleY)).toFixed(3));
-      const clampedScale = Math.max(0.4, Math.min(3.0, calculatedScale));
-      setScale(clampedScale);
+      const clampedScale = Math.max(0.4, Math.min(2.5, calculatedScale));
+      setScale(prev => (Math.abs(prev - clampedScale) >= 0.02 ? clampedScale : prev));
     }
   }, [fitMode, pageDimensions]);
 
@@ -275,11 +296,16 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
         setFileMissing(true);
       }
     }
+    setDataLoaded(true);
   }, [documentId, initialPage, initialY]);
 
   useEffect(() => {
+    setDataLoaded(false);
+    hasRestoredInitialScroll.current = false;
+    setRestoreState('loading');
+    restoreStateRef.current = 'loading';
     loadData();
-  }, [loadData]);
+  }, [documentId, loadData]);
 
   // Stable callback to reload notes from DB after any mutation (Requirement 1 & 2)
   const refreshNotes = useCallback(async () => {
@@ -408,6 +434,8 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
   // Active page dwell timer (1s interval, qualifies page when dwell reaches >= 8s)
   useEffect(() => {
     const interval = setInterval(() => {
+      // Suppress dwell accumulation during restore (Requirement 5)
+      if (restoreStateRef.current !== 'ready') return;
       if (typeof document !== 'undefined' && document.hidden) return;
       if (typeof document !== 'undefined' && typeof document.hasFocus === 'function' && !document.hasFocus()) return;
       if (Date.now() - lastInteractionTimeRef.current > 120000) return; // idle > 120s
@@ -427,6 +455,7 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
 
   // When changing visible page, if previous page accumulated >= 8s, qualify it
   useEffect(() => {
+    if (restoreStateRef.current !== 'ready') return;
     const prevP = previousTrackedPageRef.current;
     if (prevP !== currentPage) {
       const prevDwell = pageDwellAccumulatorRef.current.get(prevP) || 0;
@@ -528,23 +557,10 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     }
   };
 
-  // Restore initial scroll position once PDF is rendered
-  useEffect(() => {
-    if (hasRestoredInitialScroll.current || totalPages <= 0) return;
-
-    const targetPage = initialPage || progress?.currentPage || 1;
-    const targetY = initialY !== undefined ? initialY : (progress?.y || 0);
-
-    const timer = setTimeout(() => {
-      jumpToPageAndY(targetPage, targetY);
-      hasRestoredInitialScroll.current = true;
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [totalPages, initialPage, initialY, progress]);
-
   // Requirement 3: Debounced progress persistence (750ms throttle)
   const scheduleProgressPersistence = useCallback((page: number, y: number) => {
+    // Suppress persistence while restoring (Requirement 5)
+    if (restoreStateRef.current !== 'ready') return;
     pendingProgressRef.current = { page, y };
 
     if (progressSaveTimerRef.current) {
@@ -556,11 +572,211 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
     }, 750);
   }, [flushProgressNow]);
 
+  // Requirement 3: jumpToPageAndY returning boolean success/failure
+  const jumpToPageAndY = useCallback((
+    page: number,
+    y: number,
+    highlightId?: string,
+    behavior: ScrollBehavior = 'smooth'
+  ): boolean => {
+    const stage = stageRef.current;
+    if (!stage || totalPages <= 0) return false;
+
+    let pageEl = pageElementsRef.current.get(page);
+    if (!pageEl) {
+      const el = document.getElementById(`page-container-${page}`) as HTMLElement | null;
+      if (el) {
+        pageElementsRef.current.set(page, el);
+        pageEl = el;
+      }
+    }
+    if (!pageEl) return false;
+
+    const pageHeight = pageEl.offsetHeight;
+    if (!pageHeight || pageHeight < 50) return false;
+
+    const stageOffsetTop = stage.offsetTop;
+    const pageTop = pageEl.offsetTop - stageOffsetTop;
+    const targetScroll = Math.max(0, pageTop + (y * pageHeight));
+
+    if (behavior === 'instant' || behavior === 'auto') {
+      stage.scrollTop = targetScroll;
+    } else {
+      stage.scrollTo({ top: targetScroll, behavior });
+    }
+
+    if (restoreStateRef.current === 'ready') {
+      setCurrentPage(page);
+      setCurrentY(y);
+      currentLocatorRef.current = { page, y };
+      scheduleProgressPersistence(page, y);
+    }
+
+    // If highlight specified, temporarily flash it
+    if (highlightId) {
+      setTimeout(() => {
+        const hl = highlights.find(h => h.id === highlightId);
+        if (hl) {
+          setActiveHighlightPopup({ highlight: hl, pos: { x: window.innerWidth / 2, y: 150 } });
+        }
+      }, 500);
+    }
+
+    return true;
+  }, [totalPages, highlights, scheduleProgressPersistence]);
+
+  // Requirement 1 & 2 & 4 & 7 & 8: Explicit restore lifecycle
+  useEffect(() => {
+    if (hasRestoredInitialScroll.current) return;
+    if (!pdfFile || totalPages <= 0 || !dataLoaded) {
+      setRestoreState('loading');
+      return;
+    }
+
+    const targetPage = restoreTarget.page;
+    const targetY = restoreTarget.y;
+
+    // Fast path: if target is page 1 top, stage starts at 0 and is immediately ready
+    if (targetPage === 1 && targetY === 0) {
+      const stage = stageRef.current;
+      if (stage) {
+        stage.scrollTop = 0;
+        setCurrentPage(1);
+        setCurrentY(0);
+        currentLocatorRef.current = { page: 1, y: 0 };
+        lastPersistedLocatorRef.current = { page: 1, y: 0 };
+        hasRestoredInitialScroll.current = true;
+        setRestoreState('ready');
+        restoreStateRef.current = 'ready';
+        return;
+      }
+    }
+
+    setRestoreState('preparing');
+
+    let cancelled = false;
+    let retries = 0;
+    const maxRetries = 60; // ~1-1.5s bounded retry loop
+
+    const attemptRestore = () => {
+      if (cancelled || hasRestoredInitialScroll.current) return;
+
+      const stage = stageRef.current;
+      const pageEl = document.getElementById(`page-container-${targetPage}`);
+      const pageHeight = pageEl?.offsetHeight || 0;
+
+      // Check if target container exists and has measurable height (Requirement 2 & 4)
+      if (!stage || !pageEl || pageHeight < 50) {
+        if (retries < maxRetries) {
+          retries++;
+          restoreRafRef.current = requestAnimationFrame(attemptRestore);
+        } else {
+          // Bounded timeout fallback
+          setCurrentPage(targetPage);
+          setCurrentY(targetY);
+          currentLocatorRef.current = { page: targetPage, y: targetY };
+          lastPersistedLocatorRef.current = { page: targetPage, y: targetY };
+          hasRestoredInitialScroll.current = true;
+          setRestoreState('ready');
+          restoreStateRef.current = 'ready';
+        }
+        return;
+      }
+
+      setRestoreState('restoring');
+
+      // Attempt jump (Requirement 3 & 4)
+      const success = jumpToPageAndY(targetPage, targetY, undefined, 'instant');
+      if (!success) {
+        if (retries < maxRetries) {
+          retries++;
+          restoreRafRef.current = requestAnimationFrame(attemptRestore);
+        }
+        return;
+      }
+
+      // Wait one animation frame to verify physical scroll position (Requirement 7)
+      restoreRafRef.current = requestAnimationFrame(() => {
+        if (cancelled) return;
+        const currentStage = stageRef.current;
+        const currentPageEl = document.getElementById(`page-container-${targetPage}`);
+        if (!currentStage || !currentPageEl) {
+          if (retries < maxRetries) {
+            retries++;
+            restoreRafRef.current = requestAnimationFrame(attemptRestore);
+          }
+          return;
+        }
+
+        const stageOffset = currentStage.offsetTop;
+        const pageTop = currentPageEl.offsetTop - stageOffset;
+        const measuredH = currentPageEl.offsetHeight;
+        const targetScroll = Math.max(0, pageTop + (targetY * measuredH));
+        const currentScroll = currentStage.scrollTop;
+
+        const isCloseEnough = Math.abs(currentScroll - targetScroll) <= 40;
+        const inView = currentScroll >= pageTop - 120 && currentScroll < pageTop + measuredH - 30;
+
+        if (isCloseEnough || inView) {
+          // Physical scroll verified at target page!
+          setCurrentPage(targetPage);
+          setCurrentY(targetY);
+          currentLocatorRef.current = { page: targetPage, y: targetY };
+          lastPersistedLocatorRef.current = { page: targetPage, y: targetY };
+          hasRestoredInitialScroll.current = true;
+          setRestoreState('ready');
+          restoreStateRef.current = 'ready';
+        } else {
+          // Scroll didn't stick yet (e.g. layout pending), set directly and retry verification
+          currentStage.scrollTop = targetScroll;
+          if (retries < maxRetries) {
+            retries++;
+            restoreRafRef.current = requestAnimationFrame(attemptRestore);
+          } else {
+            setCurrentPage(targetPage);
+            setCurrentY(targetY);
+            currentLocatorRef.current = { page: targetPage, y: targetY };
+            lastPersistedLocatorRef.current = { page: targetPage, y: targetY };
+            hasRestoredInitialScroll.current = true;
+            setRestoreState('ready');
+            restoreStateRef.current = 'ready';
+          }
+        }
+      });
+    };
+
+    restoreRafRef.current = requestAnimationFrame(attemptRestore);
+
+    return () => {
+      cancelled = true;
+      if (restoreRafRef.current) cancelAnimationFrame(restoreRafRef.current);
+    };
+  }, [pdfFile, totalPages, dataLoaded, restoreTarget, jumpToPageAndY]);
+
+  // Recompute target scroll position after scale settles to prevent jumping to page 1 (Requirement 10)
+  useEffect(() => {
+    if (Math.abs(scale - lastAnchoredScaleRef.current) >= 0.02) {
+      lastAnchoredScaleRef.current = scale;
+      const targetP = currentLocatorRef.current.page || restoreTarget.page || 1;
+      const targetY = currentLocatorRef.current.y !== undefined ? currentLocatorRef.current.y : restoreTarget.y;
+
+      const timer = setTimeout(() => {
+        if (targetP >= 1) {
+          jumpToPageAndY(targetP, targetY, undefined, 'instant');
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [scale, restoreTarget, jumpToPageAndY]);
+
+
+
   // Requirement 5: Optimized scroll listener with O(1) fast-path and O(log N) binary search
-  // Eliminates O(N) looping and document.getElementById DOM tree traversal on every scroll event
+  // Suppresses updates while restoreState !== 'ready'
   const handleScroll = useCallback(() => {
     const stage = stageRef.current;
     if (!stage || totalPages <= 0) return;
+    if (restoreStateRef.current !== 'ready') return;
 
     lastInteractionTimeRef.current = Date.now();
     const scrollTop = stage.scrollTop;
@@ -633,40 +849,6 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
       scheduleProgressPersistence(page, relY);
     }
   }, [totalPages, scheduleProgressPersistence]);
-
-  // Jump to exact page and vertical position (Note <-> Source)
-  const jumpToPageAndY = (page: number, y: number, highlightId?: string) => {
-    const stage = stageRef.current;
-    let pageEl = pageElementsRef.current.get(page);
-    if (!pageEl) {
-      const el = document.getElementById(`page-container-${page}`);
-      if (el) {
-        pageElementsRef.current.set(page, el);
-        pageEl = el;
-      }
-    }
-    if (!stage || !pageEl) return;
-
-    const pageTop = pageEl.offsetTop - stage.offsetTop;
-    const pageHeight = pageEl.offsetHeight;
-    const targetScroll = pageTop + (y * pageHeight);
-
-    stage.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
-    setCurrentPage(page);
-    setCurrentY(y);
-    currentLocatorRef.current = { page, y };
-    scheduleProgressPersistence(page, y);
-
-    // If highlight specified, temporarily flash it
-    if (highlightId) {
-      setTimeout(() => {
-        const hl = highlights.find(h => h.id === highlightId);
-        if (hl) {
-          setActiveHighlightPopup({ highlight: hl, pos: { x: window.innerWidth / 2, y: 150 } });
-        }
-      }, 500);
-    }
-  };
 
   // Text selection handler
   const handleTextSelected = (
@@ -1435,6 +1617,46 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
           onScroll={handleScroll}
           style={{ position: 'relative' }}
         >
+          {/* Visible Loading Indicator during Restore (Requirement 12) */}
+          {restoreState !== 'ready' && restoreTarget.page > 1 && (
+            <div
+              style={{
+                position: 'sticky',
+                top: 16,
+                margin: '0 auto -40px',
+                width: 'fit-content',
+                zIndex: 100,
+                background: 'var(--sf-surface)',
+                border: '1px solid var(--sf-line)',
+                boxShadow: 'var(--sf-shadow)',
+                borderRadius: 999,
+                padding: '7px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--sf-ink)',
+                pointerEvents: 'none',
+                backdropFilter: 'blur(8px)',
+                animation: 'fadeIn 0.15s ease'
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  border: '2px solid var(--sf-mint-strong)',
+                  borderTopColor: 'transparent',
+                  animation: 'spin 0.8s linear infinite'
+                }}
+              />
+              <span>Đang mở lại trang {restoreTarget.page}…</span>
+            </div>
+          )}
+
           {fileMissing ? (
             <div className="card" style={{ maxWidth: 480, padding: 32, textAlign: 'center', margin: '60px auto' }}>
               <h3>⚠️ File PDF chưa có trên thiết bị này</h3>
@@ -1458,7 +1680,12 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
             >
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
                 // Windowing / virtualization: render pages in active window [currentPage - 1, currentPage, currentPage + 1]
-                const isMounted = Math.abs(pageNum - currentPage) <= 1;
+                // During restore lifecycle, also force-mount pages near restoreTarget.page (Requirement 5 & 6)
+                const isNearCurrent = Math.abs(pageNum - currentPage) <= 1;
+                const isNearRestoreTarget =
+                  restoreState !== 'ready' &&
+                  Math.abs(pageNum - restoreTarget.page) <= 1;
+                const isMounted = isNearCurrent || isNearRestoreTarget;
                 const pageHighlights = highlights.filter(h => h.page === pageNum);
 
                 return (
@@ -1467,7 +1694,12 @@ export function PdfReader({ documentId, initialPage, initialY, initialHighlightI
                     pageNumber={pageNum}
                     scale={scale}
                     isMounted={isMounted}
-                    estimatedHeight={1050 * (scale / 1.15)}
+                    estimatedHeight={
+                      pageDimensions
+                        ? pageDimensions.height * scale
+                        : 1050 * (scale / 1.15)
+                    }
+                    pageDimensions={pageDimensions}
                     highlights={pageHighlights}
                     notesByHighlightId={notesByHighlightId}
                     onTextSelected={handleTextSelected}
